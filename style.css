@@ -22,7 +22,7 @@ header a{
 }
 .active-link{
     background-color: #0a350f;
-    border-radius: 10px;
+    border-radius: 1git0px;
 }
 
 header a:hover{
@@ -135,6 +135,31 @@ footer h3{
 	width: 100%;
     background-color: rgba(249, 249, 249, 0.6);
 }
+.login-details input:focus{
+    background-color: white;
+    border: 2px solid #2c3e50;
+    outline: none;
+}
+label{
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    margin-left: 2px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+.category{
+    box-sizing: border-box;
+    border: 0px;
+	padding: 10px;
+	width: 100%;
+    height: 30px;
+    background-color: rgba(249, 249, 249, 0.6);
+}
+.category:focus{
+     background-color: white;
+    border: 2px solid #2c3e50;
+    outline: none;
+}
 .submit-button{
 	box-sizing: border-box;
 	padding: 10px;
@@ -143,12 +168,6 @@ footer h3{
 	width: 100%;
 	border-radius: 8px;
     border: 0px;
-}
-
-.login-details input:focus{
-    background-color: white;
-    border: 2px solid #2c3e50;
-    outline: none;
 }
 .forget-button{
     box-sizing: border-box;
