@@ -17,11 +17,16 @@ header ul{
     align-items: center;
 }
 header a{
-    padding: 20px;
+    padding: 10px 20px;
     font-weight: bold;
 }
+.active-link{
+    background-color: #0a350f;
+    border-radius: 10px;
+}
+
 header a:hover{
-    padding: 20px;
+    padding: 10px 20px;
     border-radius: 10px;
     color: rgb(53, 169, 53);
 
@@ -94,6 +99,17 @@ footer h3{
 	align-items: center;
 	justify-content: center;
 
+}
+.register-area{
+    background-image: url('Resourses/background-reg.png');
+    background-size: cover;
+    display: flex;
+    background-position: center;
+    height: 80vh;
+    color: #2c3e50;
+	text-align: center;
+	align-items: center;
+	justify-content: center;
 }
 .welcome-content{
     background: rgba(0,0,0,0.4);
