@@ -52,7 +52,7 @@ header a:hover{
     font-weight: bold;
     font-size: 40px;
     margin-top: 50px;
-    font-family: 'Times New Roman', Times, serif;
+    font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin-left: -70px;
 }
 footer{
@@ -397,7 +397,7 @@ hr{
     font-size: 0.8rem !important; 
 }
 .inventory-card{
-     box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     border-radius: 15px;
     padding: 20px 40px;
     padding-top: 10px;
@@ -406,4 +406,121 @@ hr{
 }
 .data-section h3{
     font-size: 24px;
+}
+/*farmer dashboard- manage products*/
+.row-1{
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+.addItem-btn{
+    color: rgb(11, 11, 11);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
+    background-color: #ffd166;
+    padding: 15px 50px;
+    margin-top: 300px;
+    border-radius: 10px;
+}
+.addItem-btn:hover{
+    color: rgb(11, 11, 11);
+    background-color: #ffd166;
+    padding: 15px 50px;
+    margin-top: 300px;
+    border-radius: 10px;
+}
+.search-input{
+    box-sizing: border-box;
+    width: 800px;
+    height: 40px;
+}
+.search-button{
+   width: 40px;
+   height: 40px;
+   padding: 15px;
+   background-image: url('Resourses/icons8-search-50.png');
+   background-position: center;
+   background-size: 90%;
+   border-radius: 8px;
+   border: 0px;
+   background-color: white;
+}
+.row-2{
+    width: 90%;
+    border-collapse: collapse;
+    text-align: left;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    border-radius: 15px;
+    padding: 20px 40px 20px 40px;
+    padding-top: 20px;
+    margin-top: 50px;
+}
+.manage-table th,.manage-table td{
+    padding: 20px 80px; 
+    border-bottom: 1px solid #333;
+}
+.manage-table th{
+    color: #888; 
+    font-size: 0.9rem; 
+    font-weight: 500; 
+}
+.manage-table td{
+    color: #ddd; 
+    font-size: 0.95rem; 
+}
+.row-2 h3{
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin-left: 40px;
+}
+.edit-btn{
+    background-color: #f8f7f4;
+    border: 0px;
+    padding: 5px 20px;
+    border-radius: 10px;
+}
+/*supplier dashboard-earnings*/
+.earning-table th,.earning-table td{
+    padding: 20px 80px; 
+    border-bottom: 1px solid #333;
+}
+.earning-table th{
+    color: #888; 
+    font-size: 0.9rem; 
+    font-weight: 500; 
+}
+.earning-table td{
+    color: #ddd; 
+    font-size: 0.95rem; 
+}
+.earning-grid{
+    display: flex;
+    justify-content: space-between;
+    padding: 30px 20px;
+}
+.earning-number{
+    font-size: 32px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-weight: bold;
+    margin-top: 0px;
+    margin-bottom: 0px;
+    color: white;
+}
+.earning-sub{
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
+}
+.earning-card h3{
+    font-size: 14px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+.earning-card{
+    padding: 20px 60px;
+    border-bottom: 5px solid #8ce67c;
+    border-radius: 15px;
+    background-color: #242424;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    width: 850px;
+    gap: 20px;
+    text-align: right;
 }

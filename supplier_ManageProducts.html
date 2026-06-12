@@ -25,6 +25,52 @@
                 <a class="nav-item" href="supplier_earnings.html">Earnings</a>
                 <a class="nav-item" href="supplier_settings.html">Settings</a>
             </nav>
+            <main class="main-content">
+                <div class="row-1">
+                    <div class="search-bar">
+                        <form action="/search" method="get" class="search-form">
+                            <input type="text" name="product" placeholder="Search" class="search-input">
+                            <button type="submit" class="search-button"></button>
+                        </form>
+                    </div>
+                    <div>
+                        <a href="addItem.html" class="addItem-btn">+ Add New Product</a>
+                    </div>
+                </div>
+                <div class="row-2">
+                        <h3>All Products</h3>
+                        <table class="manage-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Stock Levels</th>
+                                    <th>Unit Price</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Carrots</td>
+                                    <td>85 kg Left</td>
+                                    <td>LKR 280.00</td>
+                                    <td><button class="edit-btn">Edit</button></td>
+                                </tr>
+                                <tr>
+                                    <td>Fresh Papaya</td>
+                                    <td>5 kg Left</td>
+                                    <td>LKR 150.00</td>
+                                    <td><button class="edit-btn">Edit</button></td>
+                                </tr>
+                                <tr>
+                                    <td>Orange</td>
+                                    <td>12 kg Left</td>
+                                    <td>LKR 80.00</td>
+                                    <td><button class="edit-btn">Edit</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+            </main>
 
         </div>
     </body>
