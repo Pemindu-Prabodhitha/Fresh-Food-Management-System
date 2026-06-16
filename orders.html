@@ -1,0 +1,168 @@
+<!DOCKTYPE html>
+<html lang="en">
+    <head>
+        <title>Orders</title>
+        <link rel="stylesheet" type="text/css" href="style.css">
+    </head>
+    <body>
+        <header>
+            <table class="header-title">
+                <tr>
+                    <td><img src="Resourses/logofinal.png" alt="logo" width="250"></td>
+                    <td><span class="brand-name">Fresh Ceylon</span></td>
+                </tr>
+            </table>
+            <nav>
+                <ul >
+                    <li class="logout-btn"><a href="index.html" class="logout-btn">Logout</a></li>
+                </ul>
+            </nav>
+        </header>
+        <div class="suplier-dashboard">
+            <nav class="sidebar">
+                <a class="nav-item" href="supplier_overview.html">Overview</a>
+                <a class="nav-item active" href="orders.html" >Orders</a>
+                <a class="nav-item" href="supplier_ManageProducts.html">Manage Products</a>
+                <a class="nav-item" href="supplier_earnings.html">Earnings</a>
+                <a class="nav-item" href="supplier_settings.html">Settings</a>
+            </nav>
+            <main class="main-content">
+                <h2>Orders</h2>
+                <hr>
+
+                <!-- Summary Stats -->
+                <div class="orders-stat-grid">
+                    <div class="order-stat-card">
+                        <h3>Total Orders</h3>
+                        <p class="stat-number">24</p>
+                        <span class="stat-sub">All Time</span>
+                    </div>
+                    <div class="order-stat-card">
+                        <h3>Pending</h3>
+                        <p class="stat-number pending-num">4</p>
+                        <span class="stat-sub">Awaiting Action</span>
+                    </div>
+                    <div class="order-stat-card">
+                        <h3>Shipped</h3>
+                        <p class="stat-number shipped-num">11</p>
+                        <span class="stat-sub">On The Way</span>
+                    </div>
+                    <div class="order-stat-card">
+                        <h3>Completed</h3>
+                        <p class="stat-number completed-num">9</p>
+                        <span class="stat-sub">Delivered</span>
+                    </div>
+                </div>
+
+                <!-- Search & Filter -->
+                <div class="orders-toolbar">
+                    <div class="orders-search-wrap">
+                        <input type="text" class="orders-search" placeholder="Search by Order ID or Product...">
+                        <button class="orders-search-btn"></button>
+                    </div>
+                    <div class="orders-filters">
+                        <select class="orders-filter-select">
+                            <option value="">All Statuses</option>
+                            <option value="pending">Pending</option>
+                            <option value="shipped">Shipped</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                        <select class="orders-filter-select">
+                            <option value="">All Products</option>
+                            <option>Carrots</option>
+                            <option>Fresh Papaya</option>
+                            <option>Orange</option>
+                            <option>Fresh Chillies</option>
+                            <option>Ceylon Cinnamon Sticks</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Orders Table -->
+                <div class="orders-table-wrap">
+                    <h3>Incoming Orders</h3>
+                    <table class="orders-table">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Product</th>
+                                <th>Quantity</th>
+                                <th>Amount</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>FC-9081</td>
+                                <td>Fresh Papaya</td>
+                                <td>5 kg</td>
+                                <td>LKR 750.00</td>
+                                <td>2026.06.10</td>
+                                <td><span class="order-badge pending">Pending</span></td>
+                                <td><button class="action-btn">Update</button></td>
+                            </tr>
+                            <tr>
+                                <td>FC-9079</td>
+                                <td>Fresh Chillies</td>
+                                <td>10 kg</td>
+                                <td>LKR 1,200.00</td>
+                                <td>2026.06.08</td>
+                                <td><span class="order-badge shipped">Shipped</span></td>
+                                <td><button class="action-btn">Update</button></td>
+                            </tr>
+                            <tr>
+                                <td>FC-9075</td>
+                                <td>Carrots</td>
+                                <td>20 kg</td>
+                                <td>LKR 5,600.00</td>
+                                <td>2026.06.05</td>
+                                <td><span class="order-badge completed">Completed</span></td>
+                                <td><button class="action-btn">View</button></td>
+                            </tr>
+                            <tr>
+                                <td>FC-9070</td>
+                                <td>Orange</td>
+                                <td>8 kg</td>
+                                <td>LKR 640.00</td>
+                                <td>2026.06.01</td>
+                                <td><span class="order-badge pending">Pending</span></td>
+                                <td><button class="action-btn">Update</button></td>
+                            </tr>
+                            <tr>
+                                <td>FC-9065</td>
+                                <td>Ceylon Cinnamon Sticks</td>
+                                <td>3 kg</td>
+                                <td>LKR 2,100.00</td>
+                                <td>2026.05.28</td>
+                                <td><span class="order-badge completed">Completed</span></td>
+                                <td><button class="action-btn">View</button></td>
+                            </tr>
+                            <tr>
+                                <td>FC-9060</td>
+                                <td>Fresh Papaya</td>
+                                <td>12 kg</td>
+                                <td>LKR 1,800.00</td>
+                                <td>2026.05.20</td>
+                                <td><span class="order-badge cancelled">Cancelled</span></td>
+                                <td><button class="action-btn">View</button></td>
+                            </tr>
+                            <tr>
+                                <td>FC-9055</td>
+                                <td>Carrots</td>
+                                <td>15 kg</td>
+                                <td>LKR 4,200.00</td>
+                                <td>2026.05.15</td>
+                                <td><span class="order-badge shipped">Shipped</span></td>
+                                <td><button class="action-btn">Update</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </main>
+        </div>
+    </body>
+</html>
