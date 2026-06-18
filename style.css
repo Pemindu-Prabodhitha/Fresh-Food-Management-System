@@ -743,3 +743,206 @@ hr{
 .mainClass{
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
+/*supplier dashboard - order section*/
+.orders-stat-grid {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 30px 0 20px 0;
+}
+
+.order-stat-card {
+    flex: 1;
+    padding: 20px 30px;
+    border-radius: 15px;
+    background-color: #242424;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    border-left: 5px solid #8ce67c;
+}
+
+.order-stat-card h3 {
+    font-size: 14px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #888;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.pending-num  { color: #ffd166 !important; }
+.shipped-num  { color: #8ce67c !important; }
+.completed-num { color: #74c0fc !important; }
+
+/* Toolbar */
+.orders-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin: 30px 0 20px 0;
+    flex-wrap: wrap;
+}
+
+.orders-search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+
+.orders-search {
+    background-color: #242424;
+    border: 1px solid #333;
+    border-right: none;
+    border-radius: 8px 0 0 8px;
+    color: #ddd;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
+    padding: 10px 16px;
+    width: 340px;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+
+.orders-search:focus {
+    border-color: #8ce67c;
+}
+
+.orders-search-btn {
+    width: 42px;
+    height: 42px;
+    background-image: url('Resourses/icons8-search-50.png');
+    background-position: center;
+    background-size: 55%;
+    background-repeat: no-repeat;
+    background-color: #2e4a29;
+    border: none;
+    border-radius: 0 8px 8px 0;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.orders-search-btn:hover {
+    background-color: #3a5e35;
+}
+
+.orders-filters {
+    display: flex;
+    gap: 12px;
+}
+
+.orders-filter-select {
+    background-color: #242424;
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: #ddd;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
+    padding: 10px 14px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.orders-filter-select:focus {
+    border-color: #8ce67c;
+}
+
+/* Table */
+.orders-table-wrap {
+    background-color: #242424;
+    border-radius: 15px;
+    padding: 20px 40px 30px 40px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    margin-top: 10px;
+}
+
+.orders-table-wrap h3 {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 18px;
+    color: antiquewhite;
+    margin-top: 0;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #333;
+}
+
+.orders-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.orders-table th {
+    color: #888;
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 14px 16px;
+    border-bottom: 1px solid #333;
+    text-align: left;
+}
+
+.orders-table td {
+    color: #ddd;
+    font-size: 0.9rem;
+    padding: 16px 16px;
+    border-bottom: 1px solid #2a2a2a;
+}
+
+.orders-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.orders-table tbody tr:hover td {
+    background-color: #2a2a2a;
+}
+
+/* Status badges */
+.order-badge {
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: bold;
+    display: inline-block;
+}
+
+.order-badge.pending {
+    background-color: rgba(255, 209, 102, 0.12);
+    color: #ffd166;
+    border: 1px solid rgba(255, 209, 102, 0.3);
+}
+
+.order-badge.shipped {
+    background-color: rgba(140, 230, 124, 0.12);
+    color: #8ce67c;
+    border: 1px solid rgba(140, 230, 124, 0.3);
+}
+
+.order-badge.completed {
+    background-color: rgba(116, 192, 252, 0.12);
+    color: #74c0fc;
+    border: 1px solid rgba(116, 192, 252, 0.3);
+}
+
+.order-badge.cancelled {
+    background-color: rgba(239, 71, 111, 0.12);
+    color: #ef476f;
+    border: 1px solid rgba(239, 71, 111, 0.3);
+}
+
+/* Action button */
+.action-btn {
+    background-color: #1c1c1c;
+    color: #b3b3b3;
+    border: 1px solid #333;
+    padding: 6px 18px;
+    border-radius: 8px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    border-color: #8ce67c;
+    color: #8ce67c;
+}
