@@ -2,7 +2,7 @@
 $servername = "localhost";
 $username = "root";
 $password = "";
-$dbname = "fresh_food_mgmt";
+$dbname = "fresh_food_mgmt2";
 
 $con = mysqli_connect($servername,$username,$password);
 

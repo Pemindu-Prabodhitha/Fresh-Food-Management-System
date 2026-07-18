@@ -130,126 +130,202 @@ if ($stmt_comp = mysqli_prepare($con, $completed_query)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sales Dashboard - Fresh Food System</title>
+    <script>
+    (function(){try{var t=localStorage.getItem('fc-theme');document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');}catch(e){}})();
+    </script>
+    <title>Sales Dashboard - Fresh Ceylon</title>
     <link rel="stylesheet" href="../style.css">
 </head>
-<body>
+<body class="has-sidenav">
 
-    <nav class="top-nav">
-        <div class="logo-container">
-            <img src="../images/logofinal.png" alt="Fresh Ceylon Logo" class="nav-logo" style="height: 80px; margin-bottom: 15px; border-radius: 8px;">
-            <h1 class="brand-name-dash">Fresh Ceylon</h1>
-        </div>
-        <div class="nav-links">
-            <a href="settings.php" class="btn btn-primary" style="width: auto; text-decoration: none; margin-right: 10px;">Settings</a>
-            <a href="../logout.php" class="btn btn-danger" style="width: auto; text-decoration: none;">Logout</a>
-        </div>
-    </nav>
-    <div class="dashboard-header">
-            <span class="welcome-msg">Welcome, <strong><?php echo htmlspecialchars($sales_name); ?></strong> (Sales)</span>
-            
-    </div>
-
-    <div class="alert-box">
-        <h4>🔔 Recent Alerts & Updates</h4>
-        <?php if (empty($my_notifications)): ?>
-            <p style="font-style: italic;">No new alerts at the moment.</p>
-        <?php else: ?>
-            <ul>
-                <?php foreach ($my_notifications as $notif): ?>
-                    <li>
-                        <?php echo htmlspecialchars($notif['message']); ?> 
-                        <span class="alert-date">Received: <?php echo date('Y-m-d h:i A', strtotime($notif['created_at'])); ?></span>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
-        <?php endif; ?>
-    </div>
-
-    <div class="filter-bar">
-        <strong>Filters:</strong>
-        <div>
-            <input type="text" id="search_name" class="form-control" onkeyup="filterCatalog()" placeholder="Type crop name...">
-        </div>
-        <div>
-            <select id="filter_type" class="form-control" onchange="filterCatalog()">
-                <option value="">All Types</option>
-                <option value="Vegetables">Vegetables</option>
-                <option value="Fruits">Fruits</option>
-                <option value="Grains">Grains</option>
-            </select>
-        </div>
-        <div>
-            <input type="text" id="search_location" class="form-control" onkeyup="filterCatalog()" placeholder="Search city...">
-        </div>
-    </div>
-
-    <h3>Available Marketplace Listings</h3>
-    <div id="catalog_container" class="catalog-grid">
-        <?php if (empty($listings)): ?>
-            <p>No fresh food listings are currently available in the marketplace.</p>
-        <?php else: ?>
-            <?php foreach ($listings as $item): ?>
-                <div class="product-card" 
-                     data-name="<?php echo strtolower($item['food_name']); ?>"
-                     data-type="<?php echo $item['food_type']; ?>"
-                     data-location="<?php echo strtolower($item['location_city']); ?>">
-                    
-                    <h4><?php echo htmlspecialchars($item['food_name']); ?></h4>
-                    <p><strong>Type:</strong> <?php echo htmlspecialchars($item['food_type']); ?></p>
-                    <p><strong>Farmer:</strong> <?php echo htmlspecialchars($item['farmer_name']); ?></p>
-                    <p><strong>Location:</strong> <?php echo htmlspecialchars($item['location_city']); ?></p>
-                    <p><strong>Available:</strong> <?php echo htmlspecialchars($item['quantity_kg']); ?> kg</p>
-                    <p class="product-price">LKR <?php echo htmlspecialchars($item['price_per_kg']); ?> / kg</p>
-                    
-                    <form action="sales.php" method="POST" style="border-top: 1px solid #eee; padding-top: 15px; margin-top: 15px;">
-                        <input type="hidden" name="place_order" value="1">
-                        <input type="hidden" name="listing_id" value="<?php echo $item['listing_id']; ?>">
-                        
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                            <label style="margin:0;">Order Qty (kg):</label>
-                            <input type="number" name="quantity_ordered" class="form-control" min="0.1" max="<?php echo $item['quantity_kg']; ?>" step="0.1" required style="width: 80px;">
-                        </div>
-                        
-                        <button type="submit" class="btn btn-success">Book Order</button>
-                    </form>
+    <div class="app-shell">
+        <aside class="side-nav" id="sideNav">
+            <div class="side-nav-brand">
+                <img src="../images/logofinal.png" alt="Fresh Ceylon Logo" class="side-nav-logo">
+                <div class="side-nav-brand-text">
+                    <span class="brand-name-side">Fresh Ceylon</span>
+                    <span class="brand-role">Sales Buyer</span>
                 </div>
-            <?php endforeach; ?>
-        <?php endif; ?>
+            </div>
+            <nav class="side-nav-links">
+                <a href="sales.php" class="side-nav-link active"><span class="side-nav-icon">🛒</span>Dashboard</a>
+                <a href="settings.php" class="side-nav-link"><span class="side-nav-icon">⚙️</span>Settings</a>
+            </nav>
+            <div class="side-nav-footer">
+                <button type="button" class="theme-toggle" data-theme-toggle>
+                    <span class="theme-toggle-icon" data-theme-icon>☀️</span>
+                    <span data-theme-label>Light mode</span>
+                </button>
+                <a href="../logout.php" class="side-nav-link side-nav-logout"><span class="side-nav-icon">↩</span>Logout</a>
+            </div>
+        </aside>
+        <div class="side-nav-backdrop" id="sideNavBackdrop"></div>
+
+        <div class="mobile-topbar">
+            <button type="button" class="mobile-nav-toggle" id="mobileNavToggle" aria-label="Open menu">☰</button>
+            <span class="mobile-topbar-brand">Fresh Ceylon — Sales</span>
+        </div>
+
+        <main class="app-main">
+
+    <div class="dashboard-header">
+        <span class="welcome-msg">Welcome back, <strong><?php echo htmlspecialchars($sales_name); ?></strong>.</span>
     </div>
 
-    <div class="feedback-box">
-        <h3>⭐️ Leave Feedback on Completed Deliveries</h3>
-        <div class="feedback-scroll-area">
-            <?php if (empty($unreviewed_orders)): ?>
-                <p style="font-style: italic; color: #888;">No deliveries awaiting feedback reviews right now.</p>
+    <div style="max-width: 1400px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 30px;">
+
+        <!-- Dashboard Sub-Navigation -->
+        <div class="dashboard-tabs">
+            <button type="button" class="tab-btn active" data-tab-target="tab-overview" onclick="showDashboardTab('tab-overview', this)">
+                🔔 Overview
+                <?php if (!empty($my_notifications)): ?><span class="tab-count"><?php echo count($my_notifications); ?></span><?php endif; ?>
+            </button>
+            <button type="button" class="tab-btn" data-tab-target="tab-marketplace" onclick="showDashboardTab('tab-marketplace', this)">🛒 Marketplace</button>
+            <button type="button" class="tab-btn" data-tab-target="tab-feedback" onclick="showDashboardTab('tab-feedback', this)">
+                ⭐ Feedback &amp; Reviews
+                <?php if (!empty($unreviewed_orders)): ?><span class="tab-count"><?php echo count($unreviewed_orders); ?></span><?php endif; ?>
+            </button>
+        </div>
+
+        <!-- Tab: Overview -->
+        <div id="tab-overview" class="tab-content active">
+        <div class="alert-box">
+            <h4>🔔 Recent Alerts &amp; Updates</h4>
+            <?php if (empty($my_notifications)): ?>
+                <p style="font-style: italic; color: #666; font-size: 14px;">No new alerts at the moment.</p>
             <?php else: ?>
-                <?php foreach ($unreviewed_orders as $order): ?>
-                    <form action="sales.php" method="POST" class="feedback-form">
-                        <input type="hidden" name="submit_rating" value="1">
-                        <input type="hidden" name="order_id" value="<?php echo $order['order_id']; ?>">
-                        <input type="hidden" name="reviewee_id" value="<?php echo $order['farmer_id']; ?>">
-                        
-                        <p style="margin: 0 0 10px 0; color: #ddd;">
-                            Rate your experience for <strong>Order #<?php echo $order['order_id']; ?></strong> 
-                            (<?php echo htmlspecialchars($order['food_name']); ?> from Farmer <strong><?php echo htmlspecialchars($order['farmer_name']); ?></strong>):
-                        </p>
-                        
-                        <div style="display: flex; gap: 15px; align-items: center;">
-                            <select name="score" class="form-control" style="width: 150px;" required>
-                                <option value="5">5 - Excellent</option>
-                                <option value="4">4 - Good</option>
-                                <option value="3">3 - Average</option>
-                                <option value="2">2 - Poor</option>
-                                <option value="1">1 - Terrible</option>
-                            </select>
-                            <input type="text" name="comment" class="form-control" placeholder="Write a brief comment..." required>
-                            <button type="submit" class="btn btn-primary" style="width: auto; white-space: nowrap;">Submit Review</button>
+                <ul>
+                    <?php foreach ($my_notifications as $notif): ?>
+                        <li>
+                            <?php echo htmlspecialchars($notif['message']); ?> 
+                            <span class="alert-date">Received: <?php echo date('Y-m-d h:i A', strtotime($notif['created_at'])); ?></span>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+        </div>
+        </div><!-- /tab-overview -->
+
+        <!-- Tab: Marketplace -->
+        <div id="tab-marketplace" class="tab-content">
+
+        <div class="filter-bar">
+            <strong>Filters:</strong>
+            <div style="flex: 1; min-width: 200px;">
+                <input type="text" id="search_name" class="form-control" onkeyup="filterCatalog()" placeholder="Search crop name...">
+            </div>
+            <div>
+                <select id="filter_type" class="form-control" onchange="filterCatalog()">
+                    <option value="">All Categories</option>
+                    <option value="Vegetables">Vegetables</option>
+                    <option value="Fruits">Fruits</option>
+                    <option value="Grains">Grains</option>
+                </select>
+            </div>
+            <div style="flex: 1; min-width: 200px;">
+                <input type="text" id="search_location" class="form-control" onkeyup="filterCatalog()" placeholder="Search city...">
+            </div>
+        </div>
+
+        <h3 style="font-size: 22px; color: lightgreen; margin-top: 10px;">🌿 Available Marketplace Produce</h3>
+        
+        <div id="catalog_container" class="catalog-grid">
+            <?php if (empty($listings)): ?>
+                <p style="color: #666; font-style: italic;">No fresh food listings are currently available in the marketplace.</p>
+            <?php else: ?>
+                <?php foreach ($listings as $item): ?>
+                    <div class="product-card" 
+                         data-name="<?php echo strtolower($item['food_name']); ?>"
+                         data-type="<?php echo $item['food_type']; ?>"
+                         data-location="<?php echo strtolower($item['location_city']); ?>">
+
+                        <!-- Crop Image -->
+                        <div class="product-img-wrap">
+                            <?php if (!empty($item['image_path'])): ?>
+                                <img src="../<?php echo htmlspecialchars($item['image_path']); ?>" alt="<?php echo htmlspecialchars($item['food_name']); ?>">
+                            <?php else: ?>
+                                <div class="product-img-placeholder">
+                                    <?php
+                                    $icon = '🌾';
+                                    if ($item['food_type'] === 'Fruits')    $icon = '🍎';
+                                    if ($item['food_type'] === 'Vegetables') $icon = '🥦';
+                                    echo $icon;
+                                    ?>
+                                    <span><?php echo htmlspecialchars($item['food_type']); ?></span>
+                                </div>
+                            <?php endif; ?>
                         </div>
-                    </form>
+
+                        <!-- Card Body -->
+                        <div class="product-card-body">
+                            <h4><?php echo htmlspecialchars($item['food_name']); ?></h4>
+                            <span class="badge badge-available" style="align-self:flex-start; margin-bottom:10px;"><?php echo htmlspecialchars($item['food_type']); ?></span>
+
+                            <p><strong>Farmer:</strong> <span><?php echo htmlspecialchars($item['farmer_name']); ?></span></p>
+                            <p><strong>📍 Location:</strong> <span><?php echo htmlspecialchars($item['location_city']); ?></span></p>
+                            <p><strong>📦 Stock:</strong> <span><?php echo htmlspecialchars($item['quantity_kg']); ?> kg available</span></p>
+
+                            <div class="product-price">LKR <?php echo number_format($item['price_per_kg'], 2); ?> / kg</div>
+                        </div>
+
+                        <!-- Card Footer: Order Form -->
+                        <div class="product-card-footer">
+                            <form action="sales.php" method="POST">
+                                <input type="hidden" name="place_order" value="1">
+                                <input type="hidden" name="listing_id" value="<?php echo $item['listing_id']; ?>">
+                                
+                                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                                    <label style="margin:0; font-size:13px; color:#aaa; white-space:nowrap;">Qty (kg):</label>
+                                    <input type="number" name="quantity_ordered" class="form-control" min="0.1" max="<?php echo $item['quantity_kg']; ?>" step="0.1" required style="flex:1; padding:7px 10px; font-size:13px;">
+                                </div>
+                                <button type="submit" class="btn btn-success" style="width:100%; padding:9px;">🛒 Book Order</button>
+                            </form>
+                        </div>
+
+                    </div>
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
+
+        </div><!-- /tab-marketplace -->
+
+        <!-- Tab: Feedback & Reviews -->
+        <div id="tab-feedback" class="tab-content">
+        <div class="feedback-box">
+            <h3>⭐ Leave Feedback on Completed Deliveries</h3>
+            <div class="feedback-scroll-area">
+                <?php if (empty($unreviewed_orders)): ?>
+                    <p style="font-style: italic; color: #666; font-size: 14px;">No deliveries awaiting feedback reviews right now.</p>
+                <?php else: ?>
+                    <?php foreach ($unreviewed_orders as $order): ?>
+                        <form action="sales.php" method="POST" class="feedback-form">
+                            <input type="hidden" name="submit_rating" value="1">
+                            <input type="hidden" name="order_id" value="<?php echo $order['order_id']; ?>">
+                            <input type="hidden" name="reviewee_id" value="<?php echo $order['farmer_id']; ?>">
+                            
+                            <p style="margin: 0 0 15px 0; color: #ddd; font-size: 14px;">
+                                Rate your experience for <strong>Order #<?php echo $order['order_id']; ?></strong> 
+                                (<?php echo htmlspecialchars($order['food_name']); ?> from Farmer <strong><?php echo htmlspecialchars($order['farmer_name']); ?></strong>):
+                            </p>
+                            
+                            <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                                <select name="score" class="form-control" style="width: 180px;" required>
+                                    <option value="5">⭐⭐⭐⭐⭐ Excellent</option>
+                                    <option value="4">⭐⭐⭐⭐ Good</option>
+                                    <option value="3">⭐⭐⭐ Average</option>
+                                    <option value="2">⭐⭐ Poor</option>
+                                    <option value="1">⭐ Terrible</option>
+                                </select>
+                                <input type="text" name="comment" class="form-control" placeholder="Write a brief comment..." required style="flex: 1; min-width: 250px;">
+                                <button type="submit" class="btn btn-success" style="width: auto; white-space: nowrap; padding: 12px 25px;">Submit Review</button>
+                            </div>
+                        </form>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
+        </div>
+        </div><!-- /tab-feedback -->
+
     </div>
 
     <script>
@@ -271,12 +347,17 @@ if ($stmt_comp = mysqli_prepare($con, $completed_query)) {
             let matchesLocation = location.includes(searchLocation);
 
             if (matchesName && matchesType && matchesLocation) {
-                card.style.display = "block";
+                card.style.display = "flex";
             } else {
                 card.style.display = "none";
             }
         }
     }
     </script>
+
+        </main>
+    </div><!-- /app-shell -->
+
+    <script src="../theme.js"></script>
 </body>
 </html>

@@ -12,7 +12,7 @@ else{
     echo "Connected mysql server successfully.<br>";
 }
 
-$dbname = "fresh_food_mgmt";
+$dbname = "fresh_food_mgmt2";
 $sql_createdb = "CREATE DATABASE IF NOT EXISTS $dbname";
 
 if(mysqli_query($con,$sql_createdb)){
@@ -47,6 +47,7 @@ $sql_createtable_listings = "CREATE TABLE IF NOT EXISTS food_listings (
     quantity_kg DECIMAL(10, 2) NOT NULL,
     price_per_kg DECIMAL(10, 2) NOT NULL,
     status ENUM('Available', 'Pending', 'Sold Out') DEFAULT 'Available',
+    image_path VARCHAR(255) NULL DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (farmer_id) REFERENCES users(user_id) ON DELETE CASCADE
 )";
@@ -55,6 +56,16 @@ if(mysqli_query($con,$sql_createtable_listings)){
 }
 else{
     die("Error creating listings table: ".mysqli_error($con));
+}
+
+// --- MIGRATION: add image_path to food_listings if the table already existed without it ---
+$check_image_col = mysqli_query($con, "SHOW COLUMNS FROM food_listings LIKE 'image_path'");
+if ($check_image_col && mysqli_num_rows($check_image_col) == 0) {
+    if (mysqli_query($con, "ALTER TABLE food_listings ADD COLUMN image_path VARCHAR(255) NULL DEFAULT NULL AFTER status")) {
+        echo "Column 'image_path' added to existing food_listings table.<br>";
+    } else {
+        die("Error adding image_path column: ".mysqli_error($con));
+    }
 }
 
 $sql_createtable_transporter_service_areas = "CREATE TABLE IF NOT EXISTS transporter_service_areas (
