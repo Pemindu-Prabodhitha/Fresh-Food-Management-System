@@ -2,128 +2,177 @@
 session_start();
 require_once '../connection.php';
 
-// --- SECURITY CHECK ---
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Farmer') {
     header("Location: ../login.php");
     exit;
 }
 
-$farmer_id = $_SESSION['user_id'];
+$farmer_id   = $_SESSION['user_id'];
 $farmer_name = $_SESSION['name'];
-$farmer_city = $_SESSION['location_city']; 
+$farmer_city = $_SESSION['location_city'];
 
-// --- BACKEND LOGIC: INSERT NEW LISTING ---
+// --- Helper: Handle image upload ---
+function handleImageUpload($file_input) {
+    if (!isset($file_input) || $file_input['error'] === UPLOAD_ERR_NO_FILE) {
+        return ['success' => true, 'path' => null, 'error' => null]; // No file chosen, that's fine
+    }
+
+    if ($file_input['error'] !== UPLOAD_ERR_OK) {
+        $upload_errors = [
+            UPLOAD_ERR_INI_SIZE   => 'The file is larger than this server allows (upload_max_filesize in php.ini).',
+            UPLOAD_ERR_FORM_SIZE  => 'The file is larger than the form allows.',
+            UPLOAD_ERR_PARTIAL    => 'The file was only partially uploaded. Please try again.',
+            UPLOAD_ERR_NO_TMP_DIR => 'Server has no temporary folder configured for uploads.',
+            UPLOAD_ERR_CANT_WRITE => 'Server failed to write the file to disk.',
+            UPLOAD_ERR_EXTENSION  => 'A server extension blocked the upload.',
+        ];
+        $msg = $upload_errors[$file_input['error']] ?? ('Unknown upload error (code ' . $file_input['error'] . ').');
+        return ['success' => false, 'path' => null, 'error' => $msg];
+    }
+
+    // Check the file's real content type on disk instead of trusting the
+    // browser-supplied MIME type, which can be wrong or missing.
+    $allowed_mimes = [
+        'image/jpeg' => 'jpg',
+        'image/png'  => 'png',
+        'image/webp' => 'webp',
+        'image/gif'  => 'gif',
+    ];
+    $real_mime = @mime_content_type($file_input['tmp_name']);
+    if ($real_mime === false || !isset($allowed_mimes[$real_mime])) {
+        return ['success' => false, 'path' => null, 'error' => "Unsupported file type detected ($real_mime). Use JPG, PNG, WebP, or GIF."];
+    }
+
+    if ($file_input['size'] > 3 * 1024 * 1024) {
+        return ['success' => false, 'path' => null, 'error' => 'Image is larger than 3MB.'];
+    }
+
+    $dest_dir = __DIR__ . '/../images/';
+    if (!is_dir($dest_dir)) {
+        return ['success' => false, 'path' => null, 'error' => "Upload folder is missing on the server: $dest_dir"];
+    }
+    if (!is_writable($dest_dir)) {
+        return ['success' => false, 'path' => null, 'error' => "Upload folder is not writable by the server: $dest_dir"];
+    }
+
+    $ext      = $allowed_mimes[$real_mime];
+    $filename = 'crop_' . uniqid() . '.' . $ext;
+    $dest     = $dest_dir . $filename;
+
+    if (move_uploaded_file($file_input['tmp_name'], $dest)) {
+        return ['success' => true, 'path' => 'images/' . $filename, 'error' => null];
+    }
+
+    return ['success' => false, 'path' => null, 'error' => 'The server could not save the uploaded file (move_uploaded_file failed).'];
+}
+
+// --- BACKEND: INSERT NEW LISTING ---
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_listing'])) {
-    $food_name = trim($_POST['food_name']);
-    $food_type = $_POST['food_type'];
+    $food_name   = trim($_POST['food_name']);
+    $food_type   = $_POST['food_type'];
     $quantity_kg = $_POST['quantity_kg'];
     $price_per_kg = $_POST['price_per_kg'];
 
-    $insert_sql = "INSERT INTO food_listings (farmer_id, food_name, food_type, quantity_kg, price_per_kg, status) VALUES (?, ?, ?, ?, ?, 'Available')";
+    $image_path = null;
+    if (isset($_FILES['food_image'])) {
+        $upload_result = handleImageUpload($_FILES['food_image']);
+        if (!$upload_result['success']) {
+            $safe_msg = addslashes($upload_result['error']);
+            echo "<script>alert('Image upload failed: $safe_msg'); window.location.href='farmer.php';</script>";
+            exit;
+        }
+        $image_path = $upload_result['path'];
+    }
+
+    $insert_sql = "INSERT INTO food_listings (farmer_id, food_name, food_type, quantity_kg, price_per_kg, status, image_path) VALUES (?, ?, ?, ?, ?, 'Available', ?)";
     if ($stmt = mysqli_prepare($con, $insert_sql)) {
-        mysqli_stmt_bind_param($stmt, "issdd", $farmer_id, $food_name, $food_type, $quantity_kg, $price_per_kg);
+        mysqli_stmt_bind_param($stmt, "issdds", $farmer_id, $food_name, $food_type, $quantity_kg, $price_per_kg, $image_path);
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
         echo "<script>alert('Food item listed successfully!'); window.location.href='farmer.php';</script>";
+    } else {
+        echo "<script>alert('Database error: " . addslashes(mysqli_error($con)) . "'); window.location.href='farmer.php';</script>";
     }
+    exit;
 }
 
-// --- BACKEND LOGIC: DELETE LISTING ---
+// --- BACKEND: DELETE LISTING ---
 if (isset($_GET['delete_listing'])) {
-    $del_listing_id = $_GET['delete_listing'];
-    
-    // Secure delete: Ensure the listing belongs to the logged-in farmer
+    $del_listing_id = intval($_GET['delete_listing']);
     $del_sql = "DELETE FROM food_listings WHERE listing_id = ? AND farmer_id = ?";
     if ($stmt = mysqli_prepare($con, $del_sql)) {
         mysqli_stmt_bind_param($stmt, "ii", $del_listing_id, $farmer_id);
-        
         try {
-            // Attempt to execute the deletion
             mysqli_stmt_execute($stmt);
-            
             if (mysqli_stmt_affected_rows($stmt) > 0) {
                 echo "<script>alert('Listing removed successfully.'); window.location.href='farmer.php';</script>";
             } else {
-                 echo "<script>alert('Error: Could not find the listing to delete.'); window.location.href='farmer.php';</script>";
+                echo "<script>alert('Error: Could not find the listing.'); window.location.href='farmer.php';</script>";
             }
         } catch (mysqli_sql_exception $e) {
-            // Catches the foreign key constraint error in newer PHP versions
-            echo "<script>alert('Action Blocked: You cannot delete this listing because it has active purchase orders attached to it.'); window.location.href='farmer.php';</script>";
+            echo "<script>alert('Cannot delete: this listing has active orders attached.'); window.location.href='farmer.php';</script>";
         }
-        
         mysqli_stmt_close($stmt);
-        exit; // Important: Stops the rest of the HTML from rendering while redirecting
+        exit;
     }
 }
 
-// --- BACKEND LOGIC: APPROVE ORDER & ASSIGN MATCHED TRANSPORTER ---
+// --- BACKEND: APPROVE ORDER & ASSIGN TRANSPORTER ---
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['approve_order'])) {
-    $order_id = $_POST['order_id'];
-    $transporter_id = $_POST['transporter_id']; 
-    $listing_id = $_POST['listing_id'];
+    $order_id        = $_POST['order_id'];
+    $transporter_id  = $_POST['transporter_id'];
+    $listing_id      = $_POST['listing_id'];
     $quantity_ordered = $_POST['quantity_ordered'];
 
-    // FIXED: Added constraint to ensure quantity doesn't drop below zero
     $deduct_sql = "UPDATE food_listings SET quantity_kg = quantity_kg - ? WHERE listing_id = ? AND quantity_kg >= ?";
-    
     if ($stmt2 = mysqli_prepare($con, $deduct_sql)) {
         mysqli_stmt_bind_param($stmt2, "did", $quantity_ordered, $listing_id, $quantity_ordered);
         mysqli_stmt_execute($stmt2);
-        
         if (mysqli_stmt_affected_rows($stmt2) > 0) {
-            // Deducted successfully, now approve the order
             mysqli_stmt_close($stmt2);
-            
             $approve_sql = "UPDATE orders SET order_status = 'Approved', transporter_id = ? WHERE order_id = ?";
             if ($stmt1 = mysqli_prepare($con, $approve_sql)) {
                 mysqli_stmt_bind_param($stmt1, "ii", $transporter_id, $order_id);
                 mysqli_stmt_execute($stmt1);
                 mysqli_stmt_close($stmt1);
-                
                 require_once '../includes/notification_helper.php';
-                
                 addNotification($con, $transporter_id, "New Job Assigned! You have been auto-matched to haul a crop batch order (#$order_id).");
-                
                 $sales_lookup_sql = "SELECT sales_id FROM orders WHERE order_id = ?";
                 if ($stmt_lookup = mysqli_prepare($con, $sales_lookup_sql)) {
                     mysqli_stmt_bind_param($stmt_lookup, "i", $order_id);
                     mysqli_stmt_execute($stmt_lookup);
                     $res_lookup = mysqli_stmt_get_result($stmt_lookup);
                     if ($row_lookup = mysqli_fetch_assoc($res_lookup)) {
-                        $sales_id = $row_lookup['sales_id'];
-                        addNotification($con, $sales_id, "Your pending order (#$order_id) has been approved by the farmer and a transporter has been dispatched!");
+                        addNotification($con, $row_lookup['sales_id'], "Your pending order (#$order_id) has been approved by the farmer and a transporter has been dispatched!");
                     }
                     mysqli_stmt_close($stmt_lookup);
                 }
             }
-            
-            // Mark as 'Sold Out' if quantity drops to 0 or below
             $status_check_sql = "UPDATE food_listings SET status = 'Sold Out' WHERE listing_id = ? AND quantity_kg <= 0";
             if ($stmt3 = mysqli_prepare($con, $status_check_sql)) {
                 mysqli_stmt_bind_param($stmt3, "i", $listing_id);
                 mysqli_stmt_execute($stmt3);
                 mysqli_stmt_close($stmt3);
             }
-            echo "<script>alert('Order approved and Transporter assigned successfully!'); window.location.href='farmer.php';</script>";
+            echo "<script>alert('Order approved and Transporter assigned!'); window.location.href='farmer.php';</script>";
         } else {
-            // Revert or block if stock is insufficient
             mysqli_stmt_close($stmt2);
-            echo "<script>alert('Error: Not enough stock to fulfill this order!'); window.location.href='farmer.php';</script>";
+            echo "<script>alert('Error: Not enough stock!'); window.location.href='farmer.php';</script>";
         }
     }
+    exit;
 }
 
-// --- FETCH CURRENT FARMER'S LISTINGS ---
+// --- FETCH FARMER'S LISTINGS ---
 $query = "SELECT * FROM food_listings WHERE farmer_id = ? ORDER BY created_at DESC";
 $listings_stmt = mysqli_prepare($con, $query);
 mysqli_stmt_bind_param($listings_stmt, "i", $farmer_id);
 mysqli_stmt_execute($listings_stmt);
-$listings_res = mysqli_stmt_get_result($listings_stmt);
-$listings = mysqli_fetch_all($listings_res, MYSQLI_ASSOC);
+$listings = mysqli_fetch_all(mysqli_stmt_get_result($listings_stmt), MYSQLI_ASSOC);
 mysqli_stmt_close($listings_stmt);
 
-// --- FETCH INCOMING PENDING ORDERS FOR THIS FARMER ---
-$order_query = "SELECT o.*, fl.food_name, u.name AS buyer_name 
+// --- FETCH INCOMING ORDERS ---
+$order_query = "SELECT o.*, fl.food_name, u.name AS buyer_name
                 FROM orders o
                 JOIN food_listings fl ON o.listing_id = fl.listing_id
                 JOIN users u ON o.sales_id = u.user_id
@@ -131,223 +180,298 @@ $order_query = "SELECT o.*, fl.food_name, u.name AS buyer_name
 $orders_stmt = mysqli_prepare($con, $order_query);
 mysqli_stmt_bind_param($orders_stmt, "i", $farmer_id);
 mysqli_stmt_execute($orders_stmt);
-$orders_res = mysqli_stmt_get_result($orders_stmt);
-$incoming_orders = mysqli_fetch_all($orders_res, MYSQLI_ASSOC);
+$incoming_orders = mysqli_fetch_all(mysqli_stmt_get_result($orders_stmt), MYSQLI_ASSOC);
 mysqli_stmt_close($orders_stmt);
 
-// --- MATCHING ENGINE QUERY ---
-$matching_sql = "SELECT t_area.transporter_id, u.name AS transporter_name 
+// --- MATCHING ENGINE ---
+$matching_sql = "SELECT t_area.transporter_id, u.name AS transporter_name
                  FROM transporter_service_areas t_area
                  JOIN users u ON t_area.transporter_id = u.user_id
                  WHERE LOWER(t_area.covered_city) = LOWER(?)";
 $match_stmt = mysqli_prepare($con, $matching_sql);
 mysqli_stmt_bind_param($match_stmt, "s", $farmer_city);
 mysqli_stmt_execute($match_stmt);
-$match_res = mysqli_stmt_get_result($match_stmt);
-$available_transporters = mysqli_fetch_all($match_res, MYSQLI_ASSOC);
+$available_transporters = mysqli_fetch_all(mysqli_stmt_get_result($match_stmt), MYSQLI_ASSOC);
 mysqli_stmt_close($match_stmt);
 
-// --- FETCH RECENT NOTIFICATIONS FOR THE LOGGED-IN FARMER ---
+// --- NOTIFICATIONS ---
 $my_notifications = [];
 $noti_query = "SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 5";
 if ($stmt_noti = mysqli_prepare($con, $noti_query)) {
     mysqli_stmt_bind_param($stmt_noti, "i", $farmer_id);
     mysqli_stmt_execute($stmt_noti);
     $noti_res = mysqli_stmt_get_result($stmt_noti);
-    while ($row = mysqli_fetch_assoc($noti_res)) {
-        $my_notifications[] = $row;
-    }
+    while ($row = mysqli_fetch_assoc($noti_res)) { $my_notifications[] = $row; }
     mysqli_stmt_close($stmt_noti);
 }
 
-// --- FETCH FARMER'S AVERAGE RATING ---
+// --- AVERAGE RATING ---
+$avg_score = 0; $review_count = 0;
 $rating_query = "SELECT AVG(score) as avg_score, COUNT(*) as review_count FROM ratings WHERE reviewee_id = ?";
-$avg_score = 0;
-$review_count = 0;
 if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
     mysqli_stmt_bind_param($stmt_rating, "i", $farmer_id);
     mysqli_stmt_execute($stmt_rating);
     $rating_res = mysqli_stmt_get_result($stmt_rating);
     if ($rating_row = mysqli_fetch_assoc($rating_res)) {
-        $avg_score = round($rating_row['avg_score'], 1);
+        $avg_score    = round($rating_row['avg_score'], 1);
         $review_count = $rating_row['review_count'];
     }
     mysqli_stmt_close($stmt_rating);
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Farmer Dashboard - Fresh Food System</title>
+    <script>
+    (function(){try{var t=localStorage.getItem('fc-theme');document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');}catch(e){}})();
+    </script>
+    <title>Farmer Dashboard - Fresh Ceylon</title>
     <link rel="stylesheet" href="../style.css">
 </head>
-<body>
+<body class="has-sidenav">
 
-    <nav class="top-nav">
-        <div class="logo-container">
-            <img src="../images/logofinal.png" alt="Fresh Ceylon Logo" class="nav-logo" style="height: 80px; margin-bottom: 15px; border-radius: 8px;">
-            <h1 class="brand-name-dash">Fresh Ceylon</h1>
+    <div class="app-shell">
+        <aside class="side-nav" id="sideNav">
+            <div class="side-nav-brand">
+                <img src="../images/logofinal.png" alt="Fresh Ceylon Logo" class="side-nav-logo">
+                <div class="side-nav-brand-text">
+                    <span class="brand-name-side">Fresh Ceylon</span>
+                    <span class="brand-role">Farmer</span>
+                </div>
+            </div>
+            <nav class="side-nav-links">
+                <a href="farmer.php" class="side-nav-link active"><span class="side-nav-icon">🏡</span>Dashboard</a>
+                <a href="settings.php" class="side-nav-link"><span class="side-nav-icon">⚙️</span>Settings</a>
+            </nav>
+            <div class="side-nav-footer">
+                <button type="button" class="theme-toggle" data-theme-toggle>
+                    <span class="theme-toggle-icon" data-theme-icon>☀️</span>
+                    <span data-theme-label>Light mode</span>
+                </button>
+                <a href="../logout.php" class="side-nav-link side-nav-logout"><span class="side-nav-icon">↩</span>Logout</a>
+            </div>
+        </aside>
+        <div class="side-nav-backdrop" id="sideNavBackdrop"></div>
+
+        <div class="mobile-topbar">
+            <button type="button" class="mobile-nav-toggle" id="mobileNavToggle" aria-label="Open menu">☰</button>
+            <span class="mobile-topbar-brand">Fresh Ceylon — Farmer</span>
         </div>
-        <div class="nav-links">
-            <a href="settings.php" class="btn btn-primary" style="width: auto; text-decoration: none; margin-right: 10px;">Settings</a>
-            <a href="../logout.php" class="btn btn-danger" style="width: auto; text-decoration: none;">Logout</a>
-        </div>
-    </nav>
+
+        <main class="app-main">
+
     <div class="dashboard-header">
         <span class="welcome-msg">
-            Welcome, <strong><?php echo htmlspecialchars($farmer_name); ?></strong> (Location: <?php echo htmlspecialchars($farmer_city); ?>)
-            <span style="color: gold; margin-left: 15px; font-size: 16px;">
+            Welcome, <strong><?php echo htmlspecialchars($farmer_name); ?></strong>
+            <small style="font-size:14px; color:#888;"> — 📍 <?php echo htmlspecialchars($farmer_city); ?></small>
+            <span style="color:gold; margin-left:15px; font-size:15px;">
                 ⭐ Rating: <?php echo $review_count > 0 ? $avg_score . "/5 (" . $review_count . " reviews)" : "No reviews yet"; ?>
             </span>
-        </span> 
+        </span>
     </div>
 
-    <div class="alert-box">
-        <h4>🔔 Recent Alerts & Updates</h4>
-        <?php if (empty($my_notifications)): ?>
-            <p style="font-style: italic;">No new alerts at the moment.</p>
-        <?php else: ?>
-            <ul>
-                <?php foreach ($my_notifications as $notif): ?>
-                    <li>
-                        <?php echo htmlspecialchars($notif['message']); ?> 
-                        <span class="alert-date">Received: <?php echo date('Y-m-d h:i A', strtotime($notif['created_at'])); ?></span>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
-        <?php endif; ?>
-    </div>
+    <div style="padding:20px 30px;">
 
-    <h3>📥 Incoming Requests</h3>
-    <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <th>Buyer</th>
-                    <th>Crop Ordered</th>
-                    <th>Qty Requested</th>
-                    <th>Total Payout</th>
-                    <th>Auto-Matched Transporters</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (empty($incoming_orders)): ?>
-                    <tr>
-                        <td colspan="5" style="text-align: center;">No pending purchase orders right now.</td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($incoming_orders as $order): ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars($order['buyer_name']); ?></td>
-                            <td><?php echo htmlspecialchars($order['food_name']); ?></td>
-                            <td><?php echo htmlspecialchars($order['quantity_ordered']); ?> kg</td>
-                            <td>LKR <?php echo htmlspecialchars($order['total_price']); ?></td>
-                            <td>
-                                <form action="farmer.php" method="POST" style="display:flex; gap:10px;">
-                                    <input type="hidden" name="approve_order" value="1">
-                                    <input type="hidden" name="order_id" value="<?php echo $order['order_id']; ?>">
-                                    <input type="hidden" name="listing_id" value="<?php echo $order['listing_id']; ?>">
-                                    <input type="hidden" name="quantity_ordered" value="<?php echo $order['quantity_ordered']; ?>">
-                                    
-                                    <?php if (empty($available_transporters)): ?>
-                                        <span style="color: red; font-size: 13px;">⚠️ No transporters found covering <strong><?php echo htmlspecialchars($farmer_city); ?></strong></span>
-                                    <?php else: ?>
-                                        <select name="transporter_id" class="form-control" style="width: auto;" required>
-                                            <option value="">-- Choose Transporter --</option>
-                                            <?php foreach ($available_transporters as $transporter): ?>
-                                                <option value="<?php echo $transporter['transporter_id']; ?>">
-                                                    <?php echo htmlspecialchars($transporter['transporter_name']); ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                        <button type="submit" class="btn btn-success btn-sm">Approve & Assign</button>
-                                    <?php endif; ?>
-                                </form>
-                            </td>
-                        </tr>
+        <!-- Dashboard Sub-Navigation -->
+        <div class="dashboard-tabs">
+            <button type="button" class="tab-btn active" data-tab-target="tab-overview" onclick="showDashboardTab('tab-overview', this)">🔔 Overview</button>
+            <button type="button" class="tab-btn" data-tab-target="tab-incoming-orders" onclick="showDashboardTab('tab-incoming-orders', this)">
+                📥 Incoming Orders
+                <?php if (!empty($incoming_orders)): ?><span class="tab-count"><?php echo count($incoming_orders); ?></span><?php endif; ?>
+            </button>
+            <button type="button" class="tab-btn" data-tab-target="tab-my-listings" onclick="showDashboardTab('tab-my-listings', this)">📦 My Listings</button>
+        </div>
+
+        <!-- Tab: Overview -->
+        <div id="tab-overview" class="tab-content active">
+        <div class="alert-box">
+            <h4>🔔 Recent Alerts &amp; Updates</h4>
+            <?php if (empty($my_notifications)): ?>
+                <p style="font-style:italic; color:#666;">No new alerts at the moment.</p>
+            <?php else: ?>
+                <ul>
+                    <?php foreach ($my_notifications as $notif): ?>
+                        <li><?php echo htmlspecialchars($notif['message']); ?>
+                            <span class="alert-date">Received: <?php echo date('Y-m-d h:i A', strtotime($notif['created_at'])); ?></span>
+                        </li>
                     <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
-
-    <div class="dashboard-layout">
-        <div class="dashboard-sidebar">
-            <h3>List New Produce</h3>
-            <form action="farmer.php" method="POST">
-                <input type="hidden" name="add_listing" value="1">
-                
-                <div class="form-group">
-                    <label>Food Name:</label>
-                    <input type="text" name="food_name" class="form-control" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Food Type:</label>
-                    <select name="food_type" class="form-control" required>
-                        <option value="Vegetables">Vegetables</option>
-                        <option value="Fruits">Fruits</option>
-                        <option value="Grains">Grains</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Quantity (kg):</label>
-                    <input type="number" step="0.01" name="quantity_kg" class="form-control" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Price per kg (LKR):</label>
-                    <input type="number" step="0.01" name="price_per_kg" class="form-control" required>
-                </div>
-
-                <button type="submit" class="btn btn-primary">Submit Listing</button>
-            </form>
+                </ul>
+            <?php endif; ?>
         </div>
+        </div><!-- /tab-overview -->
 
-        <div class="dashboard-main">
-            <h3>Your Crop Inventory</h3>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Crop</th>
-                            <th>Type</th>
-                            <th>Stock Qty</th>
-                            <th>Price/kg</th>
-                            <th>Status</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($listings)): ?>
+        <!-- Tab: Incoming Orders -->
+        <div id="tab-incoming-orders" class="tab-content">
+        <h3 style="color:lightgreen; margin-bottom:12px;">📥 Incoming Purchase Requests</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Buyer</th>
+                        <th>Crop Ordered</th>
+                        <th>Qty Requested</th>
+                        <th>Total Payout</th>
+                        <th>Assign Transporter &amp; Approve</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($incoming_orders)): ?>
+                        <tr><td colspan="5" style="text-align:center; color:#666; font-style:italic; padding:20px;">No pending purchase orders right now.</td></tr>
+                    <?php else: ?>
+                        <?php foreach ($incoming_orders as $order): ?>
                             <tr>
-                                <td colspan="6" style="text-align: center;">You haven't listed any crops yet.</td>
+                                <td><?php echo htmlspecialchars($order['buyer_name']); ?></td>
+                                <td style="color:lightgreen; font-weight:bold;"><?php echo htmlspecialchars($order['food_name']); ?></td>
+                                <td><?php echo htmlspecialchars($order['quantity_ordered']); ?> kg</td>
+                                <td style="color:white; font-weight:bold;">LKR <?php echo number_format($order['total_price'], 2); ?></td>
+                                <td>
+                                    <form action="farmer.php" method="POST" style="display:flex; gap:10px; align-items:center;">
+                                        <input type="hidden" name="approve_order" value="1">
+                                        <input type="hidden" name="order_id" value="<?php echo $order['order_id']; ?>">
+                                        <input type="hidden" name="listing_id" value="<?php echo $order['listing_id']; ?>">
+                                        <input type="hidden" name="quantity_ordered" value="<?php echo $order['quantity_ordered']; ?>">
+                                        <?php if (empty($available_transporters)): ?>
+                                            <span style="color:#ff8080; font-size:13px;">⚠️ No transporters in <strong><?php echo htmlspecialchars($farmer_city); ?></strong></span>
+                                        <?php else: ?>
+                                            <select name="transporter_id" class="form-control" style="width:auto;" required>
+                                                <option value="">-- Choose Transporter --</option>
+                                                <?php foreach ($available_transporters as $t): ?>
+                                                    <option value="<?php echo $t['transporter_id']; ?>"><?php echo htmlspecialchars($t['transporter_name']); ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <button type="submit" class="btn btn-success btn-sm">Approve &amp; Assign</button>
+                                        <?php endif; ?>
+                                    </form>
+                                </td>
                             </tr>
-                        <?php else: ?>
-                            <?php foreach ($listings as $item): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($item['food_name']); ?></td>
-                                    <td><?php echo htmlspecialchars($item['food_type']); ?></td>
-                                    <td><?php echo htmlspecialchars($item['quantity_kg']); ?> kg</td>
-                                    <td>LKR <?php echo htmlspecialchars($item['price_per_kg']); ?></td>
-                                    <td><?php echo htmlspecialchars($item['status']); ?></td>
-                                    <td>
-                                        <a href="farmer.php?delete_listing=<?php echo $item['listing_id']; ?>" 
-                                           class="btn btn-danger btn-sm" 
-                                           onclick="return confirm('Are you sure you want to delete this listing?');"
-                                           style="text-decoration: none;">Delete</a>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
         </div>
-    </div>
+        </div><!-- /tab-incoming-orders -->
+
+        <!-- Tab: My Listings -->
+        <div id="tab-my-listings" class="tab-content">
+
+            <div class="section-toolbar">
+                <h3>📦 Your Crop Inventory</h3>
+                <button type="button" class="btn btn-success" style="width:auto; padding:11px 24px;" data-modal-open="addProduceModal">+ Add New Produce</button>
+            </div>
+
+            <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:60px;">Photo</th>
+                                <th>Crop</th>
+                                <th>Type</th>
+                                <th>Stock (kg)</th>
+                                <th>Price/kg</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($listings)): ?>
+                                <tr><td colspan="7" style="text-align:center; color:#666; font-style:italic; padding:20px;">You haven't listed any crops yet. Click "+ Add New Produce" to get started!</td></tr>
+                            <?php else: ?>
+                                <?php foreach ($listings as $item): ?>
+                                    <tr>
+                                        <td>
+                                            <?php if (!empty($item['image_path'])): ?>
+                                                <img src="../<?php echo htmlspecialchars($item['image_path']); ?>" alt="<?php echo htmlspecialchars($item['food_name']); ?>" style="width:55px; height:45px; object-fit:cover; border-radius:5px; border:1px solid #2a2a2a;">
+                                            <?php else: ?>
+                                                <div style="width:55px; height:45px; background:#0a200f; border-radius:5px; border:1px dashed #333; display:flex; align-items:center; justify-content:center; font-size:20px;">🌿</div>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td style="font-weight:bold;"><?php echo htmlspecialchars($item['food_name']); ?></td>
+                                        <td><?php echo htmlspecialchars($item['food_type']); ?></td>
+                                        <td><?php echo htmlspecialchars($item['quantity_kg']); ?> kg</td>
+                                        <td style="color:lightgreen; font-weight:bold;">LKR <?php echo number_format($item['price_per_kg'], 2); ?></td>
+                                        <td>
+                                            <?php
+                                            $bc = 'badge-available';
+                                            if ($item['status'] == 'Pending')  $bc = 'badge-pending';
+                                            if ($item['status'] == 'Sold Out') $bc = 'badge-sold';
+                                            ?>
+                                            <span class="badge <?php echo $bc; ?>"><?php echo htmlspecialchars($item['status']); ?></span>
+                                        </td>
+                                        <td>
+                                            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                                <a href="edit_listing.php?id=<?php echo $item['listing_id']; ?>"
+                                                   class="btn btn-warning btn-sm"
+                                                   style="text-decoration:none;">✏️ Edit</a>
+                                                <a href="farmer.php?delete_listing=<?php echo $item['listing_id']; ?>"
+                                                   class="btn btn-danger btn-sm"
+                                                   onclick="return confirm('Delete this listing?');"
+                                                   style="text-decoration:none;">🗑 Delete</a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+            </div>
+
+        </div><!-- /tab-my-listings -->
+
+        <!-- Add New Produce Modal -->
+        <div class="modal-overlay" id="addProduceModal">
+            <div class="modal-box">
+                <div class="modal-header">
+                    <h3>🌾 List New Produce</h3>
+                    <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form action="farmer.php" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="add_listing" value="1">
+
+                        <div class="form-group">
+                            <label>Food Name:</label>
+                            <input type="text" name="food_name" class="form-control" placeholder="e.g. Carrots, Mangoes" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Food Type:</label>
+                            <select name="food_type" class="form-control" required>
+                                <option value="Vegetables">Vegetables</option>
+                                <option value="Fruits">Fruits</option>
+                                <option value="Grains">Grains</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Quantity (kg):</label>
+                            <input type="number" step="0.01" name="quantity_kg" class="form-control" placeholder="0.00" min="0.01" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Price per kg (LKR):</label>
+                            <input type="number" step="0.01" name="price_per_kg" class="form-control" placeholder="0.00" min="0.01" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Produce Photo <small style="color:var(--text-muted);">(JPG/PNG/WebP, max 3MB)</small>:</label>
+                            <div class="file-input-wrapper">
+                                <input type="file" name="food_image" accept="image/jpeg,image/png,image/webp,image/gif">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Submit Listing</button>
+                    </form>
+                </div>
+            </div>
+        </div><!-- /addProduceModal -->
+
+    </div><!-- /padding wrapper -->
+
+        </main>
+    </div><!-- /app-shell -->
+
+    <script src="../theme.js"></script>
 </body>
 </html>

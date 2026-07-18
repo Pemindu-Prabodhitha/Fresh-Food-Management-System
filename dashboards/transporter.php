@@ -128,122 +128,188 @@ if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+    (function(){try{var t=localStorage.getItem('fc-theme');document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');}catch(e){}})();
+    </script>
     <title>Transporter Dashboard - Fresh Ceylon</title>
     <link rel="stylesheet" href="../style.css">
 </head>
-<body>
+<body class="has-sidenav">
 
-    <nav class="top-nav">
-        <div class="logo-container">
-            <img src="../images/logofinal.png" alt="Fresh Ceylon Logo" class="nav-logo" style="height: 80px; margin-bottom: 15px; border-radius: 8px;">
-            <h1 class="brand-name-dash">Fresh Ceylon</h1>
+    <div class="app-shell">
+        <aside class="side-nav" id="sideNav">
+            <div class="side-nav-brand">
+                <img src="../images/logofinal.png" alt="Fresh Ceylon Logo" class="side-nav-logo">
+                <div class="side-nav-brand-text">
+                    <span class="brand-name-side">Fresh Ceylon</span>
+                    <span class="brand-role">Transporter</span>
+                </div>
+            </div>
+            <nav class="side-nav-links">
+                <a href="transporter.php" class="side-nav-link active"><span class="side-nav-icon">🚚</span>Dashboard</a>
+                <a href="settings.php" class="side-nav-link"><span class="side-nav-icon">⚙️</span>Settings</a>
+            </nav>
+            <div class="side-nav-footer">
+                <button type="button" class="theme-toggle" data-theme-toggle>
+                    <span class="theme-toggle-icon" data-theme-icon>☀️</span>
+                    <span data-theme-label>Light mode</span>
+                </button>
+                <a href="../logout.php" class="side-nav-link side-nav-logout"><span class="side-nav-icon">↩</span>Logout</a>
+            </div>
+        </aside>
+        <div class="side-nav-backdrop" id="sideNavBackdrop"></div>
+
+        <div class="mobile-topbar">
+            <button type="button" class="mobile-nav-toggle" id="mobileNavToggle" aria-label="Open menu">☰</button>
+            <span class="mobile-topbar-brand">Fresh Ceylon — Transporter</span>
         </div>
-        <div class="nav-links">
-            <a href="settings.php" class="btn btn-primary" style="width: auto; text-decoration: none; margin-right: 10px;">Settings</a>
-            <a href="../logout.php" class="btn btn-danger" style="width: auto; text-decoration: none;">Logout</a>
-        </div>
-    </nav>
+
+        <main class="app-main">
+
     <div class="dashboard-header">
         <span class="welcome-msg">
-            Welcome, <strong><?php echo htmlspecialchars($transporter_name); ?></strong> (Transporter)
-            <span style="color: gold; margin-left: 15px; font-size: 16px;">
-                ⭐ Rating: <?php echo $review_count > 0 ? $avg_score . "/5 (" . $review_count . " reviews)" : "No reviews yet"; ?>
-            </span>
+            Welcome back, <strong><?php echo htmlspecialchars($transporter_name); ?></strong>.
+        </span>
+        <span style="background: var(--accent-soft); border: 1px solid var(--accent); padding: 8px 16px; border-radius: var(--radius-md); color: var(--accent); font-weight: 600; display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono);">
+            ⭐ Rating: <?php echo $review_count > 0 ? $avg_score . "/5 (" . $review_count . " reviews)" : "No reviews yet"; ?>
         </span>
     </div>
 
-    <div class="alert-box">
-        <h4>🔔 Recent Alerts & Updates</h4>
-        <?php if (empty($my_notifications)): ?>
-            <p style="font-style: italic;">No new alerts at the moment.</p>
-        <?php else: ?>
-            <ul>
-                <?php foreach ($my_notifications as $notif): ?>
-                    <li>
-                        <?php echo htmlspecialchars($notif['message']); ?> 
-                        <span class="alert-date">Received: <?php echo date('Y-m-d h:i A', strtotime($notif['created_at'])); ?></span>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
-        <?php endif; ?>
-    </div>
+    <div style="max-width: 1400px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 30px;">
 
-    <div class="dashboard-layout">
-        
-        <div class="dashboard-sidebar">
-            <h3>Manage Service Areas</h3>
-            <form action="transporter.php" method="POST" style="margin-bottom: 25px;">
-                <input type="hidden" name="add_area" value="1">
-                <div class="form-group">
-                    <label for="covered_city">Add Covered City / Town:</label>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="text" name="covered_city" class="form-control" required>
-                        <button type="submit" class="btn btn-primary" style="width: auto;">Add</button>
-                    </div>
-                </div>
-            </form>
+        <!-- Dashboard Sub-Navigation -->
+        <div class="dashboard-tabs">
+            <button type="button" class="tab-btn active" data-tab-target="tab-overview" onclick="showDashboardTab('tab-overview', this)">
+                🔔 Overview
+                <?php if (!empty($my_notifications)): ?><span class="tab-count"><?php echo count($my_notifications); ?></span><?php endif; ?>
+            </button>
+            <button type="button" class="tab-btn" data-tab-target="tab-delivery-queue" onclick="showDashboardTab('tab-delivery-queue', this)">
+                🚚 Delivery Queue
+                <?php if (!empty($my_deliveries)): ?><span class="tab-count"><?php echo count($my_deliveries); ?></span><?php endif; ?>
+            </button>
+            <button type="button" class="tab-btn" data-tab-target="tab-service-areas" onclick="showDashboardTab('tab-service-areas', this)">
+                🗺️ Service Areas
+                <?php if (!empty($my_areas)): ?><span class="tab-count"><?php echo count($my_areas); ?></span><?php endif; ?>
+            </button>
+        </div>
 
-            <h4>Your Coverage Areas:</h4>
-            <?php if (empty($my_areas)): ?>
-                <p>No service cities added yet.</p>
+        <!-- Tab: Overview -->
+        <div id="tab-overview" class="tab-content active">
+        <div class="alert-box">
+            <h4>🔔 Recent Alerts & Updates</h4>
+            <?php if (empty($my_notifications)): ?>
+                <p style="font-style: italic; color: var(--text-muted); font-size: 14px;">No new alerts at the moment.</p>
             <?php else: ?>
-                <ul style="padding-left: 20px;">
-                    <?php foreach ($my_areas as $area): ?>
-                        <li style="margin-bottom: 10px;">
-                            <?php echo htmlspecialchars($area['covered_city']); ?> 
-                            <a href="transporter.php?delete_area=<?php echo $area['service_id']; ?>" style="color: #dc3545; font-size: 12px; margin-left: 10px; text-decoration: none;">[Remove]</a>
+                <ul>
+                    <?php foreach ($my_notifications as $notif): ?>
+                        <li>
+                            <?php echo htmlspecialchars($notif['message']); ?> 
+                            <span class="alert-date">Received: <?php echo date('Y-m-d h:i A', strtotime($notif['created_at'])); ?></span>
                         </li>
                     <?php endforeach; ?>
                 </ul>
             <?php endif; ?>
         </div>
+        </div><!-- /tab-overview -->
 
-        <div class="dashboard-main">
-            <h3>Your Delivery Queue</h3>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Order ID</th>
-                            <th>Item Name</th>
-                            <th>Pickup Location</th>
-                            <th>Drop Point (Buyer)</th>
-                            <th>Status</th>
-                            <th>Update</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($my_deliveries)): ?>
+        <!-- Tab: Delivery Queue -->
+        <div id="tab-delivery-queue" class="tab-content">
+            <div class="dashboard-main" style="max-width: 100%;">
+                <h3 style="font-size: 22px; color: var(--primary);">Your Active Delivery Queue</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
                             <tr>
-                                <td colspan="6" style="text-align: center;">No active delivery assignments found.</td>
+                                <th>Order ID</th>
+                                <th>Item Name</th>
+                                <th>Pickup City</th>
+                                <th>Drop Point (Buyer)</th>
+                                <th>Status</th>
+                                <th style="text-align: right;">Update Status</th>
                             </tr>
-                        <?php else: ?>
-                            <?php foreach ($my_deliveries as $job): ?>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($my_deliveries)): ?>
                                 <tr>
-                                    <td>#<?php echo $job['order_id']; ?></td>
-                                    <td><?php echo htmlspecialchars($job['food_name']); ?></td>
-                                    <td><?php echo htmlspecialchars($job['pickup_location']); ?></td>
-                                    <td style="color: lightgreen; font-weight: bold;"><?php echo htmlspecialchars($job['drop_point']); ?></td>
-                                    <td><strong><?php echo htmlspecialchars($job['order_status']); ?></strong></td>
-                                    <td>
-                                        <form action="transporter.php" method="POST" style="display: flex; gap: 5px; align-items: center;">
-                                            <input type="hidden" name="update_status" value="1">
-                                            <input type="hidden" name="order_id" value="<?php echo $job['order_id']; ?>">
-                                            <select name="new_status" class="form-control" style="width: auto; padding: 5px;">
-                                                <option value="Approved" <?php if($job['order_status'] == 'Approved') echo 'selected'; ?>>Approved</option>
-                                                <option value="In Transit" <?php if($job['order_status'] == 'In Transit') echo 'selected'; ?>>In Transit</option>
-                                                <option value="Delivered" <?php if($job['order_status'] == 'Delivered') echo 'selected'; ?>>Delivered</option>
-                                            </select>
-                                            <button type="submit" class="btn btn-success btn-sm">Save</button>
-                                        </form>
-                                    </td>
+                                    <td colspan="6" style="text-align: center; color: var(--text-muted); font-style: italic; padding: 25px;">No active delivery assignments found.</td>
                                 </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+                            <?php else: ?>
+                                <?php foreach ($my_deliveries as $job): ?>
+                                    <tr>
+                                        <td style="font-weight: bold;">#<?php echo $job['order_id']; ?></td>
+                                        <td style="font-weight: 500;"><?php echo htmlspecialchars($job['food_name']); ?></td>
+                                        <td><?php echo htmlspecialchars($job['pickup_location']); ?></td>
+                                        <td style="color: var(--primary); font-weight: 500;"><?php echo htmlspecialchars($job['drop_point']); ?></td>
+                                        <td>
+                                            <?php
+                                            $badge_class = 'badge-available'; // default
+                                            if ($job['order_status'] == 'Approved') $badge_class = 'badge-pending';
+                                            if ($job['order_status'] == 'In Transit') $badge_class = 'badge-pending';
+                                            if ($job['order_status'] == 'Delivered') $badge_class = 'badge-available';
+                                            if ($job['order_status'] == 'Cancelled') $badge_class = 'badge-sold';
+                                            ?>
+                                            <span class="badge <?php echo $badge_class; ?>"><?php echo htmlspecialchars($job['order_status']); ?></span>
+                                        </td>
+                                        <td>
+                                            <form action="transporter.php" method="POST" style="display: flex; gap: 8px; align-items: center; justify-content: flex-end;">
+                                                <input type="hidden" name="update_status" value="1">
+                                                <input type="hidden" name="order_id" value="<?php echo $job['order_id']; ?>">
+                                                <select name="new_status" class="form-control" style="width: auto; padding: 6px 12px; font-size: 13px;">
+                                                    <option value="Approved" <?php if($job['order_status'] == 'Approved') echo 'selected'; ?>>Approved</option>
+                                                    <option value="In Transit" <?php if($job['order_status'] == 'In Transit') echo 'selected'; ?>>In Transit</option>
+                                                    <option value="Delivered" <?php if($job['order_status'] == 'Delivered') echo 'selected'; ?>>Delivered</option>
+                                                    <option value="Cancelled" <?php if($job['order_status'] == 'Cancelled') echo 'selected'; ?>>Cancelled</option>
+                                                </select>
+                                                <button type="submit" class="btn btn-primary btn-sm" style="padding: 8px 12px;">Save</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
+        </div><!-- /tab-delivery-queue -->
+
+        <!-- Tab: Service Areas -->
+        <div id="tab-service-areas" class="tab-content">
+            <div class="dashboard-sidebar" style="max-width: 480px;">
+                <h3>Manage Service Areas</h3>
+                <form action="transporter.php" method="POST" style="margin-bottom: 25px;">
+                    <input type="hidden" name="add_area" value="1">
+                    <div class="form-group">
+                        <label for="covered_city">Covered City / Town</label>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <input type="text" name="covered_city" class="form-control" placeholder="e.g. Colombo, Kandy" required>
+                            <button type="submit" class="btn btn-success" style="width: 100%;">Add Area</button>
+                        </div>
+                    </div>
+                </form>
+
+                <h4 style="margin-bottom: 15px; font-size: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Your Coverage Areas</h4>
+                <?php if (empty($my_areas)): ?>
+                    <p style="color: var(--text-muted); font-style: italic; font-size: 13px;">No service cities added yet.</p>
+                <?php else: ?>
+                    <ul style="padding-left: 15px; font-size: 14px; list-style: square;">
+                        <?php foreach ($my_areas as $area): ?>
+                            <li style="margin-bottom: 12px; color: white;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span><?php echo htmlspecialchars($area['covered_city']); ?></span>
+                                    <a href="transporter.php?delete_area=<?php echo $area['service_id']; ?>" style="color: var(--danger); font-size: 12px; text-decoration: none; font-weight: bold;">[Remove]</a>
+                                </div>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </div>
+        </div><!-- /tab-service-areas -->
+
     </div>
+
+        </main>
+    </div><!-- /app-shell -->
+
+    <script src="../theme.js"></script>
 </body>
 </html>
