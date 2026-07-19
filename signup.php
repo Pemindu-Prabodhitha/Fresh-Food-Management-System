@@ -29,7 +29,7 @@ if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
     </nav>
 
     <div style="flex-grow:1; display:flex; align-items:center; justify-content:center; padding:40px 20px;">
-        <div class="auth-container">
+        <div class="auth-container auth-wide">
             <h2>Create an Account</h2>
             <?php
             if (isset($_SESSION['signup_success'])) {
@@ -42,25 +42,29 @@ if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
             }
             ?>
             <form id="signup-form" action="signup_action.php" method="POST" novalidate autocomplete="off">
-                <div class="form-group">
-                    <label for="signup-name">Full Name:</label>
-                    <input type="text" id="signup-name" name="name" class="form-control" placeholder="John Doe">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="signup-name">Full Name:</label>
+                        <input type="text" id="signup-name" name="name" class="form-control" placeholder="John Doe">
+                    </div>
+                    <div class="form-group">
+                        <label for="signup-email">Email Address:</label>
+                        <input type="text" id="signup-email" name="email" class="form-control" placeholder="john@example.com">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="signup-email">Email Address:</label>
-                    <input type="text" id="signup-email" name="email" class="form-control" placeholder="john@example.com">
-                </div>
-                <div class="form-group">
-                    <label for="signup-password">Password:</label>
-                    <input type="password" id="signup-password" name="password" class="form-control" placeholder="Min. 6 characters">
-                </div>
-                <div class="form-group">
-                    <label for="signup-role">Select Your Role:</label>
-                    <select id="signup-role" name="role" class="form-control">
-                        <option value="Farmer">Farmer</option>
-                        <option value="Sales">Sales Person</option>
-                        <option value="Transporter">Transporter</option>
-                    </select>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="signup-password">Password:</label>
+                        <input type="password" id="signup-password" name="password" class="form-control" placeholder="Min. 6 characters">
+                    </div>
+                    <div class="form-group">
+                        <label for="signup-role">Select Your Role:</label>
+                        <select id="signup-role" name="role" class="form-control">
+                            <option value="Farmer">Farmer</option>
+                            <option value="Sales">Sales Person</option>
+                            <option value="Transporter">Transporter</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="signup-location">City / Location:</label>

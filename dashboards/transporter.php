@@ -43,25 +43,49 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_status'])) {
     $order_id = $_POST['order_id'];
     $new_status = $_POST['new_status'];
 
-    $status_sql = "UPDATE orders SET order_status = ? WHERE order_id = ? AND transporter_id = ?";
-    if ($stmt = mysqli_prepare($con, $status_sql)) {
-        mysqli_stmt_bind_param($stmt, "sii", $new_status, $order_id, $transporter_id);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
-        
-        // --- NOTIFICATION HOOK ---
-        require_once '../includes/notification_helper.php';
-        
-        $order_lookup_sql = "SELECT sales_id FROM orders WHERE order_id = ?";
-        if ($stmt_order = mysqli_prepare($con, $order_lookup_sql)) {
-            mysqli_stmt_bind_param($stmt_order, "i", $order_id);
-            mysqli_stmt_execute($stmt_order);
-            $order_res = mysqli_stmt_get_result($stmt_order);
-            if ($order_row = mysqli_fetch_assoc($order_res)) {
-                $s_id = $order_row['sales_id'];
-                addNotification($con, $s_id, "Delivery Update: Your order #$order_id status has shifted to '$new_status'.");
+    require_once '../includes/notification_helper.php';
+
+    if ($new_status === 'Cancelled') {
+        // Transporter is releasing this job. Send it back to "Approved" with no
+        // transporter so the buyer can pick someone else, instead of dead-ending it.
+        $status_sql = "UPDATE orders SET order_status = 'Approved', transporter_id = NULL WHERE order_id = ? AND transporter_id = ?";
+        if ($stmt = mysqli_prepare($con, $status_sql)) {
+            mysqli_stmt_bind_param($stmt, "ii", $order_id, $transporter_id);
+            mysqli_stmt_execute($stmt);
+            $affected = mysqli_stmt_affected_rows($stmt);
+            mysqli_stmt_close($stmt);
+
+            if ($affected > 0) {
+                $order_lookup_sql = "SELECT sales_id FROM orders WHERE order_id = ?";
+                if ($stmt_order = mysqli_prepare($con, $order_lookup_sql)) {
+                    mysqli_stmt_bind_param($stmt_order, "i", $order_id);
+                    mysqli_stmt_execute($stmt_order);
+                    $order_res = mysqli_stmt_get_result($stmt_order);
+                    if ($order_row = mysqli_fetch_assoc($order_res)) {
+                        addNotification($con, $order_row['sales_id'], "Your transporter cancelled order #$order_id. Please select another transporter to continue.");
+                    }
+                    mysqli_stmt_close($stmt_order);
+                }
             }
-            mysqli_stmt_close($stmt_order);
+        }
+    } else {
+        $status_sql = "UPDATE orders SET order_status = ? WHERE order_id = ? AND transporter_id = ?";
+        if ($stmt = mysqli_prepare($con, $status_sql)) {
+            mysqli_stmt_bind_param($stmt, "sii", $new_status, $order_id, $transporter_id);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+
+            $order_lookup_sql = "SELECT sales_id FROM orders WHERE order_id = ?";
+            if ($stmt_order = mysqli_prepare($con, $order_lookup_sql)) {
+                mysqli_stmt_bind_param($stmt_order, "i", $order_id);
+                mysqli_stmt_execute($stmt_order);
+                $order_res = mysqli_stmt_get_result($stmt_order);
+                if ($order_row = mysqli_fetch_assoc($order_res)) {
+                    $s_id = $order_row['sales_id'];
+                    addNotification($con, $s_id, "Delivery Update: Your order #$order_id status has shifted to '$new_status'.");
+                }
+                mysqli_stmt_close($stmt_order);
+            }
         }
     }
 }
@@ -168,7 +192,7 @@ if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
 
     <div class="dashboard-header">
         <span class="welcome-msg">
-            Welcome back, <strong><?php echo htmlspecialchars($transporter_name); ?></strong>.
+            Welcome back, <strong><?php echo htmlspecialchars($transporter_name); ?></strong> (Transporter)
         </span>
         <span style="background: var(--accent-soft); border: 1px solid var(--accent); padding: 8px 16px; border-radius: var(--radius-md); color: var(--accent); font-weight: 600; display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono);">
             ⭐ Rating: <?php echo $review_count > 0 ? $avg_score . "/5 (" . $review_count . " reviews)" : "No reviews yet"; ?>
@@ -251,14 +275,15 @@ if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
                                             <span class="badge <?php echo $badge_class; ?>"><?php echo htmlspecialchars($job['order_status']); ?></span>
                                         </td>
                                         <td>
-                                            <form action="transporter.php" method="POST" style="display: flex; gap: 8px; align-items: center; justify-content: flex-end;">
+                                            <form action="transporter.php" method="POST" style="display: flex; gap: 8px; align-items: center; justify-content: flex-end;"
+                                                onsubmit="var sel=this.querySelector('select[name=new_status]'); if(sel.value==='Cancelled'){ return confirm('Cancel this delivery job? It will be released back to the buyer so they can pick another transporter.'); }">
                                                 <input type="hidden" name="update_status" value="1">
                                                 <input type="hidden" name="order_id" value="<?php echo $job['order_id']; ?>">
                                                 <select name="new_status" class="form-control" style="width: auto; padding: 6px 12px; font-size: 13px;">
                                                     <option value="Approved" <?php if($job['order_status'] == 'Approved') echo 'selected'; ?>>Approved</option>
                                                     <option value="In Transit" <?php if($job['order_status'] == 'In Transit') echo 'selected'; ?>>In Transit</option>
                                                     <option value="Delivered" <?php if($job['order_status'] == 'Delivered') echo 'selected'; ?>>Delivered</option>
-                                                    <option value="Cancelled" <?php if($job['order_status'] == 'Cancelled') echo 'selected'; ?>>Cancelled</option>
+                                                    <option value="Cancelled">Cancel &amp; Release Job</option>
                                                 </select>
                                                 <button type="submit" class="btn btn-primary btn-sm" style="padding: 8px 12px;">Save</button>
                                             </form>

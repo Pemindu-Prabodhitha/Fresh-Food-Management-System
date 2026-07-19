@@ -42,28 +42,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_listing'])) {
     // Handle new image upload (optional)
     $new_image_path = $listing['image_path']; // Keep old image by default
 
-    if (isset($_FILES['food_image']) && $_FILES['food_image']['error'] === UPLOAD_ERR_OK) {
-        $allowed_types = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (isset($_FILES['food_image']) && $_FILES['food_image']['error'] !== UPLOAD_ERR_NO_FILE) {
         $file = $_FILES['food_image'];
 
-        if (!in_array($file['type'], $allowed_types)) {
-            $error = "Invalid image type. Use JPG, PNG, or WebP.";
-        } elseif ($file['size'] > 3 * 1024 * 1024) {
-            $error = "Image too large. Maximum is 3MB.";
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            $upload_errors = [
+                UPLOAD_ERR_INI_SIZE   => 'The file is larger than this server allows (upload_max_filesize in php.ini).',
+                UPLOAD_ERR_FORM_SIZE  => 'The file is larger than the form allows.',
+                UPLOAD_ERR_PARTIAL    => 'The file was only partially uploaded. Please try again.',
+                UPLOAD_ERR_NO_TMP_DIR => 'Server has no temporary folder configured for uploads.',
+                UPLOAD_ERR_CANT_WRITE => 'Server failed to write the file to disk.',
+                UPLOAD_ERR_EXTENSION  => 'A server extension blocked the upload.',
+            ];
+            $error = $upload_errors[$file['error']] ?? ('Unknown upload error (code ' . $file['error'] . ').');
         } else {
-            $ext      = pathinfo($file['name'], PATHINFO_EXTENSION);
-            $filename = 'crop_' . uniqid() . '.' . strtolower($ext);
-            $dest     = __DIR__ . '/../images/' . $filename;
+            // Check the file's real content type on disk instead of trusting the
+            // browser-supplied MIME type, which can be wrong or missing.
+            $allowed_mimes = [
+                'image/jpeg' => 'jpg',
+                'image/png'  => 'png',
+                'image/webp' => 'webp',
+                'image/gif'  => 'gif',
+            ];
+            $real_mime = @mime_content_type($file['tmp_name']);
 
-            if (move_uploaded_file($file['tmp_name'], $dest)) {
-                // Delete old image if it exists
-                if (!empty($listing['image_path'])) {
-                    $old_path = __DIR__ . '/../' . $listing['image_path'];
-                    if (file_exists($old_path)) @unlink($old_path);
-                }
-                $new_image_path = 'images/' . $filename;
+            if ($real_mime === false || !isset($allowed_mimes[$real_mime])) {
+                $error = "Unsupported file type detected ($real_mime). Use JPG, PNG, WebP, or GIF.";
+            } elseif ($file['size'] > 3 * 1024 * 1024) {
+                $error = "Image is larger than 3MB.";
             } else {
-                $error = "Could not save the uploaded image.";
+                $dest_dir = __DIR__ . '/../images/';
+                if (!is_dir($dest_dir)) {
+                    $error = "Upload folder is missing on the server: $dest_dir";
+                } elseif (!is_writable($dest_dir)) {
+                    $error = "Upload folder is not writable by the server: $dest_dir";
+                } else {
+                    $ext      = $allowed_mimes[$real_mime];
+                    $filename = 'crop_' . uniqid() . '.' . $ext;
+                    $dest     = $dest_dir . $filename;
+
+                    if (move_uploaded_file($file['tmp_name'], $dest)) {
+                        // Delete old image if it exists
+                        if (!empty($listing['image_path'])) {
+                            $old_path = __DIR__ . '/../' . $listing['image_path'];
+                            if (file_exists($old_path)) @unlink($old_path);
+                        }
+                        $new_image_path = 'images/' . $filename;
+                    } else {
+                        $error = "The server could not save the uploaded file (move_uploaded_file failed).";
+                    }
+                }
             }
         }
     }
@@ -71,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_listing'])) {
     if (!$error) {
         $update_sql = "UPDATE food_listings SET food_name=?, food_type=?, quantity_kg=?, price_per_kg=?, status=?, image_path=? WHERE listing_id=? AND farmer_id=?";
         if ($stmt = mysqli_prepare($con, $update_sql)) {
-            mysqli_stmt_bind_param($stmt, "ssddsii", $food_name, $food_type, $quantity_kg, $price_per_kg, $status, $new_image_path, $listing_id, $farmer_id);
+            mysqli_stmt_bind_param($stmt, "ssddssii", $food_name, $food_type, $quantity_kg, $price_per_kg, $status, $new_image_path, $listing_id, $farmer_id);
             if (mysqli_stmt_execute($stmt)) {
                 $listing['food_name']    = $food_name;
                 $listing['food_type']    = $food_type;
@@ -81,9 +109,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_listing'])) {
                 $listing['image_path']   = $new_image_path;
                 $success = "Listing updated successfully!";
             } else {
-                $error = "Failed to update the listing.";
+                $error = "Failed to update the listing: " . mysqli_error($con);
             }
             mysqli_stmt_close($stmt);
+        } else {
+            $error = "Database error: " . mysqli_error($con);
         }
     }
 }
