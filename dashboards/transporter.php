@@ -263,7 +263,7 @@ if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
         </span>
     </div>
 
-    <div style="max-width: 1400px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 30px;">
+    <div class="dash-container">
 
         <!-- Dashboard Sub-Navigation -->
         <div class="dashboard-tabs">
