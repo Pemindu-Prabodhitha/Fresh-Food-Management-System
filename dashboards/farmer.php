@@ -311,7 +311,7 @@ if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
         </span>
     </div>
 
-    <div class="dash-content-pad">
+    <div style="padding:20px 30px;">
 
         <!-- Dashboard Sub-Navigation -->
         <div class="dashboard-tabs">

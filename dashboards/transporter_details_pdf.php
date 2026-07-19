@@ -128,16 +128,6 @@ if ($rstmt = mysqli_prepare($con, $rsql)) {
             .sheet { box-shadow: none; border-radius: 0; max-width: 100%; padding: 20px; }
             .print-bar { display: none; }
         }
-
-        @media (max-width: 600px) {
-            body { padding: 12px; }
-            .sheet { padding: 22px 18px; }
-            .doc-header { flex-direction: column; gap: 10px; }
-            .meta { text-align: left; }
-            table.kv td.label { display: block; width: 100%; padding-bottom: 0; }
-            table.kv td.value { display: block; width: 100%; padding-top: 2px; padding-bottom: 12px; }
-            table.kv tr { display: block; }
-        }
     </style>
 </head>
 <body>

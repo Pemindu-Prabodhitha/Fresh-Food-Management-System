@@ -274,7 +274,7 @@ foreach ($my_orders as $ord) {
         <span class="welcome-msg">Welcome back, <strong><?php echo htmlspecialchars($sales_name); ?></strong> (Sales Buyer)</span>
     </div>
 
-    <div class="dash-container">
+    <div style="max-width: 1400px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 30px;">
 
         <!-- Dashboard Sub-Navigation -->
         <div class="dashboard-tabs">
