@@ -323,12 +323,8 @@ $all_ratings = mysqli_fetch_all($ratings_res, MYSQLI_ASSOC);
                 <table>
                     <thead>
                         <tr>
+                            <th style="width:60px;">Photo</th>
                             <th>Listing ID</th>
-                            <th>Produce Item</th>
-                            <th>Type</th>
-                            <th>Farmer</th>
-                        <th style="width:60px;">Photo</th>
-                            <th>ID</th>
                             <th>Crop</th>
                             <th>Type</th>
                             <th>Farmer</th>
@@ -401,6 +397,7 @@ $all_ratings = mysqli_fetch_all($ratings_res, MYSQLI_ASSOC);
                             <th style="text-align: right;">Action</th>
                         </tr>
                     </thead>
+                    <tbody>
                                       <?php if (empty($all_orders)): ?>
                             <tr>
                                 <td colspan="9" style="text-align: center; color: #666; font-style: italic; padding: 25px;">No orders found in the database.</td>
@@ -438,7 +435,7 @@ $all_ratings = mysqli_fetch_all($ratings_res, MYSQLI_ASSOC);
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
-                        <?php endif; ?>?php endif; ?>
+                        <?php endif; ?>
                     </tbody>
                 </table>
             </div>
