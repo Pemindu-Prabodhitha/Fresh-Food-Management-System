@@ -1,8 +1,8 @@
 <?php
-$servername = "sql206.infinityfree.com";
-$username = "if0_42447735";
-$password = "yz8AlA3SWOgeqqT";
-$dbname = "if0_42447735_fresh_ceylon";
+$servername = "localhost";
+$username = "root";
+$password = "";
+$dbname = "fresh_food_mgmt2";
 
 $con = mysqli_connect($servername,$username,$password);
 
