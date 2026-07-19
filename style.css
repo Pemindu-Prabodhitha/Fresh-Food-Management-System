@@ -759,6 +759,46 @@ body.landing-body {
     .admin-tabs { gap: 6px; }
 }
 
+/* ============================================================
+   GLOBAL RESPONSIVE SAFETY NET
+   Prevents the most common causes of horizontal overflow /
+   broken layout on narrow (phone) screens, across every page.
+   ============================================================ */
+img, svg { max-width: 100%; height: auto; }
+table { table-layout: auto; }
+td, th { word-break: break-word; overflow-wrap: break-word; }
+.form-control, select, textarea, input, button { max-width: 100%; }
+pre, code { white-space: pre-wrap; word-break: break-word; }
+
+/* Reusable logo sizing classes so pages no longer need fixed
+   inline pixel heights that can't shrink on small screens */
+.nav-logo-hero { height: 70px; width: auto; border-radius: 8px; }
+.footer-logo { height: 100px; width: auto; border-radius: 8px; margin-bottom: 12px; }
+
+@media (max-width: 480px) {
+    body { padding: 12px; }
+    .auth-container { padding: 22px 18px; margin: 25px auto; }
+    .auth-container.auth-wide { max-width: 100%; }
+    .hero-title { font-size: 22px; }
+    .hero-subtitle { font-size: 14px; }
+    .hero-overlay { padding: 24px 16px; }
+    .hero-buttons { flex-direction: column; }
+    .hero-buttons .btn { width: 100%; }
+    .top-nav .nav-links { flex-direction: column; width: 100%; gap: 8px; }
+    .top-nav .nav-links .btn { width: 100%; }
+    .nav-logo-hero { height: 46px; }
+    .footer-logo { height: 60px; }
+    .modal-body { padding: 16px; }
+    .modal-header { padding: 14px 16px; }
+    .stat-card { padding: 16px; }
+    .stat-card .stat-value { font-size: 20px; }
+    .product-price { font-size: 16px; }
+    .welcome-msg { font-size: 14px; }
+    .app-main { padding: 16px 12px 32px; }
+    .side-nav { width: 82vw; }
+    .btn-sm { padding: 7px 10px; font-size: 11px; }
+}
+
 /* Custom scrollbar global */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: var(--bg-body); }

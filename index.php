@@ -10,7 +10,7 @@
     
     <nav class="top-nav">
         <div class="logo-container">
-            <img src="images/logofinal.png" alt="Fresh Ceylon Logo" class="nav-logo" style="height:100px;">
+            <img src="images/logofinal.png" alt="Fresh Ceylon Logo" class="nav-logo nav-logo-hero">
             <h1 class="brand-name">Fresh Ceylon</h1>
         </div>
         <div class="nav-links">
@@ -55,7 +55,7 @@
     <footer class="bottom-nav">
         <div class="footer-content">
             <div class="footer-section">
-                <img src="images/logofinal.png" alt="logo" style="height:150px; margin-bottom:12px; border-radius:8px;">
+                <img src="images/logofinal.png" alt="logo" class="footer-logo">
                 <p style="margin-top:0; line-height:1.6; color:#888; font-size:14px;">Built for Sri Lanka's farming community — Fresh Ceylon simplifies fresh food trading by connecting farmers, sellers, and transporters on one easy platform.</p>
             </div>
             <div class="footer-section">
