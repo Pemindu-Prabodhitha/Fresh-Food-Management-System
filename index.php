@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fresh Ceylon - Empowering Sri Lanka's Farming</title>
+    <title>Fresh Ceylon</title>
     <link rel="stylesheet" type="text/css" href="style.css">
 </head>
 <body class="landing-body">
@@ -21,7 +21,7 @@
 
     <header class="hero-section" style="background-image: url('images/welcome.png');">
         <div class="hero-overlay">
-            <h2 class="hero-title">Empowering Sri Lanka's Farming Community</h2>
+            <h2 class="hero-title">Empowering Sri Lanka's <strong style="color:green;">Farming Community</strong></h2>
             <p class="hero-subtitle">Fresh Ceylon simplifies fresh food trading by connecting farmers, sellers, and transporters on one easy, reliable platform.</p>
             <div class="hero-buttons">
                 <a href="login.php" class="btn btn-primary" style="font-size:18px; padding:12px 35px; width:auto; font-weight:bold;">Login to Dashboard</a>

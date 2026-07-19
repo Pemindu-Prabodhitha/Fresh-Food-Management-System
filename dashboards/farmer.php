@@ -426,6 +426,11 @@ if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
                                 <td>
                                     <?php if ($fo['transporter_name']): ?>
                                         <?php echo htmlspecialchars($fo['transporter_name']); ?>
+                                        <?php if (empty($fo['transporter_confirmed'])): ?>
+                                            <span style="display:block; color:var(--warning); font-size:11px; font-style:italic;">Awaiting their confirmation</span>
+                                        <?php else: ?>
+                                            <span style="display:block; color:var(--accent); font-size:11px; font-style:italic;">Confirmed</span>
+                                        <?php endif; ?>
                                     <?php elseif ($fo['order_status'] === 'Approved'): ?>
                                         <span style="color:var(--warning); font-style:italic; font-size:12px;">Awaiting buyer's pick</span>
                                     <?php else: ?>

@@ -19,7 +19,7 @@ if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
     
     <nav class="top-nav">
         <div class="logo-container">
-            <img src="images/logofinal.png" alt="Fresh Ceylon Logo" class="nav-logo" style="height:55px;">
+            <img src="images/logofinal.png" alt="Fresh Ceylon Logo" class="nav-logo" style="height:100px;">
             <h1 class="brand-name-dash">Fresh Ceylon</h1>
         </div>
         <div class="nav-links">

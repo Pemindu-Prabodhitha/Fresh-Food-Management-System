@@ -40,6 +40,21 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
+    // Keep the "passwords match" error in sync as the user edits either password field
+    const pwField = document.getElementById("signup-password");
+    const confirmPwField = document.getElementById("signup-confirm-password");
+    if (pwField && confirmPwField) {
+        [pwField, confirmPwField].forEach(field => {
+            field.addEventListener('input', function () {
+                if (confirmPwField.value !== "" && pwField.value !== confirmPwField.value) {
+                    showError(confirmPwField, "Passwords do not match.");
+                } else {
+                    clearError(confirmPwField);
+                }
+            });
+        });
+    }
+
     // Utility function to validate email format
     function isValidEmail(email) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -85,13 +100,17 @@ document.addEventListener("DOMContentLoaded", function () {
             let isValid = true;
             const nameInput = document.getElementById("signup-name");
             const emailInput = document.getElementById("signup-email");
+            const mobileInput = document.getElementById("signup-mobile");
             const passwordInput = document.getElementById("signup-password");
+            const confirmPasswordInput = document.getElementById("signup-confirm-password");
             const locationInput = document.getElementById("signup-location");
 
             // Clear previous errors
             clearError(nameInput);
             clearError(emailInput);
+            clearError(mobileInput);
             clearError(passwordInput);
+            clearError(confirmPasswordInput);
             clearError(locationInput);
 
             // Validate Name
@@ -112,12 +131,31 @@ document.addEventListener("DOMContentLoaded", function () {
                 isValid = false;
             }
 
+            // Validate Mobile Number
+            const mobileRegex = /^[0-9+\-\s]{7,15}$/;
+            if (mobileInput.value.trim() === "") {
+                showError(mobileInput, "Mobile number is required.");
+                isValid = false;
+            } else if (!mobileRegex.test(mobileInput.value.trim())) {
+                showError(mobileInput, "Please enter a valid mobile number.");
+                isValid = false;
+            }
+
             // Validate Password
             if (passwordInput.value.trim() === "") {
                 showError(passwordInput, "Password is required.");
                 isValid = false;
             } else if (passwordInput.value.trim().length < 6) {
                 showError(passwordInput, "Password must be at least 6 characters long.");
+                isValid = false;
+            }
+
+            // Validate Confirm Password
+            if (confirmPasswordInput.value.trim() === "") {
+                showError(confirmPasswordInput, "Please confirm your password.");
+                isValid = false;
+            } else if (passwordInput.value !== confirmPasswordInput.value) {
+                showError(confirmPasswordInput, "Passwords do not match.");
                 isValid = false;
             }
 
@@ -133,4 +171,4 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         });
     }
-}); 
+});

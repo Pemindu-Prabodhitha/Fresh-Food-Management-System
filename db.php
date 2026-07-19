@@ -39,6 +39,16 @@ else{
     die("Error creating table users: ".mysqli_error($con));
 }
 
+// --- MIGRATION: add phone (mobile number) to users if the table already existed without it ---
+$check_phone_col = mysqli_query($con, "SHOW COLUMNS FROM users LIKE 'phone'");
+if ($check_phone_col && mysqli_num_rows($check_phone_col) == 0) {
+    if (mysqli_query($con, "ALTER TABLE users ADD COLUMN phone VARCHAR(30) NULL DEFAULT NULL AFTER location_city")) {
+        echo "Column 'phone' added to existing users table.<br>";
+    } else {
+        die("Error adding phone column: ".mysqli_error($con));
+    }
+}
+
 $sql_createtable_listings = "CREATE TABLE IF NOT EXISTS food_listings (
     listing_id INT AUTO_INCREMENT PRIMARY KEY,
     farmer_id INT,
@@ -89,6 +99,11 @@ $sql_createtable_orders = "CREATE TABLE IF NOT EXISTS orders (
     quantity_ordered DECIMAL(10, 2) NOT NULL,
     total_price DECIMAL(10, 2) NOT NULL,
     order_status ENUM('Pending Approval', 'Approved', 'In Transit', 'Delivered', 'Cancelled') DEFAULT 'Pending Approval',
+    contact_name VARCHAR(100) NULL DEFAULT NULL,
+    contact_email VARCHAR(100) NULL DEFAULT NULL,
+    contact_mobile VARCHAR(20) NULL DEFAULT NULL,
+    pickup_location VARCHAR(150) NULL DEFAULT NULL,
+    transporter_confirmed TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (listing_id) REFERENCES food_listings(listing_id),
     FOREIGN KEY (sales_id) REFERENCES users(user_id),
@@ -99,6 +114,25 @@ if(mysqli_query($con,$sql_createtable_orders)){
 }
 else{
     die("Error creating orders table: ".mysqli_error($con));
+}
+
+// --- MIGRATION: add buyer contact/pickup fields + transporter confirmation flag to orders if missing ---
+$orders_columns_to_add = [
+    'contact_name'          => "VARCHAR(100) NULL DEFAULT NULL",
+    'contact_email'         => "VARCHAR(100) NULL DEFAULT NULL",
+    'contact_mobile'        => "VARCHAR(20) NULL DEFAULT NULL",
+    'pickup_location'       => "VARCHAR(150) NULL DEFAULT NULL",
+    'transporter_confirmed' => "TINYINT(1) NOT NULL DEFAULT 0",
+];
+foreach ($orders_columns_to_add as $col_name => $col_def) {
+    $check_col = mysqli_query($con, "SHOW COLUMNS FROM orders LIKE '$col_name'");
+    if ($check_col && mysqli_num_rows($check_col) == 0) {
+        if (mysqli_query($con, "ALTER TABLE orders ADD COLUMN $col_name $col_def")) {
+            echo "Column '$col_name' added to existing orders table.<br>";
+        } else {
+            die("Error adding $col_name column: ".mysqli_error($con));
+        }
+    }
 }
 
 $sql_createtable_notifications = "CREATE TABLE IF NOT EXISTS notifications (
