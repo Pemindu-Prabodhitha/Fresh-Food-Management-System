@@ -31,9 +31,9 @@
     </header>
 
     <!-- Feature Section -->
-    <section style="padding: 70px 8%; background: #111;">
+    <section class="feature-section">
         <h2 style="text-align:center; color:lightgreen; font-size:28px; margin-bottom:45px;">How Fresh Ceylon Works</h2>
-        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:25px;">
+        <div class="feature-grid">
             <div class="feature-card" style="animation-delay:0.1s;">
                 <div class="icon-circle">🌾</div>
                 <h3>For Farmers</h3>

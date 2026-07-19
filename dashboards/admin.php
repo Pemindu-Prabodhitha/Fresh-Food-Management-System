@@ -214,7 +214,7 @@ $all_ratings = mysqli_fetch_all($ratings_res, MYSQLI_ASSOC);
         <span style="font-size: 14px; color: var(--text-muted);">Role: Main Administrator</span>
     </div>
 
-    <div style="padding: 40px 5%; max-width: 1400px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 30px;">
+    <div class="dash-container dash-container-padded">
         
         <div>
             <?php if ($message): ?>
