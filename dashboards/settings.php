@@ -21,12 +21,14 @@ if ($role === 'Admin')       $dashboard_link = "admin.php";
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_profile'])) {
     $new_name = trim($_POST['name']);
     $new_city = trim($_POST['location_city']);
-    $update_sql = "UPDATE users SET name = ?, location_city = ? WHERE user_id = ?";
+    $new_phone = trim($_POST['phone']);
+    $update_sql = "UPDATE users SET name = ?, location_city = ?, phone = ? WHERE user_id = ?";
     if ($stmt = mysqli_prepare($con, $update_sql)) {
-        mysqli_stmt_bind_param($stmt, "ssi", $new_name, $new_city, $user_id);
+        mysqli_stmt_bind_param($stmt, "sssi", $new_name, $new_city, $new_phone, $user_id);
         if (mysqli_stmt_execute($stmt)) {
             $_SESSION['name'] = $new_name;
             $_SESSION['location_city'] = $new_city;
+            $_SESSION['phone'] = $new_phone;
             $message = "Profile updated successfully!";
         } else { $error = "Error updating profile."; }
         mysqli_stmt_close($stmt);
@@ -66,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_password'])) {
     }
 }
 
-$query = "SELECT name, email, location_city FROM users WHERE user_id = ?";
+$query = "SELECT name, email, location_city,phone FROM users WHERE user_id = ?";
 if ($stmt = mysqli_prepare($con, $query)) {
     mysqli_stmt_bind_param($stmt, "i", $user_id);
     mysqli_stmt_execute($stmt);
@@ -122,6 +124,10 @@ if ($stmt = mysqli_prepare($con, $query)) {
                     <div class="form-group">
                         <label>Location / City:</label>
                         <input type="text" name="location_city" class="form-control" value="<?php echo htmlspecialchars($user_data['location_city']); ?>" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Mobile No:</label>
+                        <input type="text" name="phone" class="form-control" value="<?php echo htmlspecialchars($user_data['phone'] ?? ''); ?>" required>
                     </div>
                     <button type="submit" class="btn btn-success" style="margin-top:10px;">Save Profile Updates</button>
                 </form>

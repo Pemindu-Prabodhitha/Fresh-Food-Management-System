@@ -48,7 +48,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_status'])) {
     if ($new_status === 'Cancelled') {
         // Transporter is releasing this job. Send it back to "Approved" with no
         // transporter so the buyer can pick someone else, instead of dead-ending it.
-        $status_sql = "UPDATE orders SET order_status = 'Approved', transporter_id = NULL WHERE order_id = ? AND transporter_id = ?";
+        $status_sql = "UPDATE orders SET order_status = 'Approved', transporter_id = NULL, transporter_confirmed = 0 WHERE order_id = ? AND transporter_id = ?";
         if ($stmt = mysqli_prepare($con, $status_sql)) {
             mysqli_stmt_bind_param($stmt, "ii", $order_id, $transporter_id);
             mysqli_stmt_execute($stmt);
@@ -90,6 +90,70 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_status'])) {
     }
 }
 
+// --- BACKEND LOGIC: CONFIRM JOB (transporter accepts a newly assigned job) ---
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['confirm_job'])) {
+    $order_id = $_POST['order_id'];
+
+    $confirm_sql = "UPDATE orders SET transporter_confirmed = 1 WHERE order_id = ? AND transporter_id = ? AND transporter_confirmed = 0";
+    if ($stmt = mysqli_prepare($con, $confirm_sql)) {
+        mysqli_stmt_bind_param($stmt, "ii", $order_id, $transporter_id);
+        mysqli_stmt_execute($stmt);
+        $affected = mysqli_stmt_affected_rows($stmt);
+        mysqli_stmt_close($stmt);
+
+        if ($affected > 0) {
+            require_once '../includes/notification_helper.php';
+            $order_lookup_sql = "SELECT o.sales_id, fl.farmer_id FROM orders o JOIN food_listings fl ON o.listing_id = fl.listing_id WHERE o.order_id = ?";
+            if ($stmt_order = mysqli_prepare($con, $order_lookup_sql)) {
+                mysqli_stmt_bind_param($stmt_order, "i", $order_id);
+                mysqli_stmt_execute($stmt_order);
+                $order_res = mysqli_stmt_get_result($stmt_order);
+                if ($order_row = mysqli_fetch_assoc($order_res)) {
+                    addNotification($con, $order_row['sales_id'], "Good news! Your transporter confirmed order #$order_id. You can now download their details.");
+                    addNotification($con, $order_row['farmer_id'], "Order #$order_id: the transporter has confirmed the job.");
+                }
+                mysqli_stmt_close($stmt_order);
+            }
+            echo "<script>alert('Job confirmed! It now appears in your active delivery queue.'); window.location.href='transporter.php';</script>";
+        } else {
+            echo "<script>alert('Could not confirm this job (it may already be processed).'); window.location.href='transporter.php';</script>";
+        }
+    }
+    exit;
+}
+
+// --- BACKEND LOGIC: REJECT JOB (transporter declines a newly assigned job) ---
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['reject_job'])) {
+    $order_id = $_POST['order_id'];
+
+    $reject_sql = "UPDATE orders SET order_status = 'Approved', transporter_id = NULL, transporter_confirmed = 0
+                   WHERE order_id = ? AND transporter_id = ? AND transporter_confirmed = 0";
+    if ($stmt = mysqli_prepare($con, $reject_sql)) {
+        mysqli_stmt_bind_param($stmt, "ii", $order_id, $transporter_id);
+        mysqli_stmt_execute($stmt);
+        $affected = mysqli_stmt_affected_rows($stmt);
+        mysqli_stmt_close($stmt);
+
+        if ($affected > 0) {
+            require_once '../includes/notification_helper.php';
+            $order_lookup_sql = "SELECT sales_id FROM orders WHERE order_id = ?";
+            if ($stmt_order = mysqli_prepare($con, $order_lookup_sql)) {
+                mysqli_stmt_bind_param($stmt_order, "i", $order_id);
+                mysqli_stmt_execute($stmt_order);
+                $order_res = mysqli_stmt_get_result($stmt_order);
+                if ($order_row = mysqli_fetch_assoc($order_res)) {
+                    addNotification($con, $order_row['sales_id'], "The transporter declined order #$order_id. Please select another transporter.");
+                }
+                mysqli_stmt_close($stmt_order);
+            }
+            echo "<script>alert('Job rejected.'); window.location.href='transporter.php';</script>";
+        } else {
+            echo "<script>alert('Could not reject this job (it may already be processed).'); window.location.href='transporter.php';</script>";
+        }
+    }
+    exit;
+}
+
 // --- FETCH TRANSPORTER'S COVERED CITIES ---
 $area_query = "SELECT * FROM transporter_service_areas WHERE transporter_id = ?";
 $areas_stmt = mysqli_prepare($con, $area_query);
@@ -101,7 +165,7 @@ mysqli_stmt_close($areas_stmt);
 
 // --- FETCH TRANSPORTER'S DELIVERY QUEUE WITH LOCATIONS ---
 $queue_query = "SELECT o.*, fl.food_name, 
-                u_farmer.location_city AS pickup_location, 
+                u_farmer.location_city AS pickup_city, 
                 u_sales.name AS buyer_name, 
                 u_sales.location_city AS drop_point 
                 FROM orders o
@@ -249,7 +313,7 @@ if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
                                 <th>Pickup City</th>
                                 <th>Drop Point (Buyer)</th>
                                 <th>Status</th>
-                                <th style="text-align: right;">Update Status</th>
+                                <th style="text-align: right;">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -262,7 +326,7 @@ if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
                                     <tr>
                                         <td style="font-weight: bold;">#<?php echo $job['order_id']; ?></td>
                                         <td style="font-weight: 500;"><?php echo htmlspecialchars($job['food_name']); ?></td>
-                                        <td><?php echo htmlspecialchars($job['pickup_location']); ?></td>
+                                        <td><?php echo htmlspecialchars($job['pickup_city']); ?></td>
                                         <td style="color: var(--primary); font-weight: 500;"><?php echo htmlspecialchars($job['drop_point']); ?></td>
                                         <td>
                                             <?php
@@ -273,20 +337,40 @@ if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
                                             if ($job['order_status'] == 'Cancelled') $badge_class = 'badge-sold';
                                             ?>
                                             <span class="badge <?php echo $badge_class; ?>"><?php echo htmlspecialchars($job['order_status']); ?></span>
+                                            <?php if (empty($job['transporter_confirmed'])): ?>
+                                                <span style="display:block; color:var(--warning); font-size:11px; font-style:italic;">Needs your review</span>
+                                            <?php endif; ?>
                                         </td>
-                                        <td>
-                                            <form action="transporter.php" method="POST" style="display: flex; gap: 8px; align-items: center; justify-content: flex-end;"
-                                                onsubmit="var sel=this.querySelector('select[name=new_status]'); if(sel.value==='Cancelled'){ return confirm('Cancel this delivery job? It will be released back to the buyer so they can pick another transporter.'); }">
-                                                <input type="hidden" name="update_status" value="1">
-                                                <input type="hidden" name="order_id" value="<?php echo $job['order_id']; ?>">
-                                                <select name="new_status" class="form-control" style="width: auto; padding: 6px 12px; font-size: 13px;">
-                                                    <option value="Approved" <?php if($job['order_status'] == 'Approved') echo 'selected'; ?>>Approved</option>
-                                                    <option value="In Transit" <?php if($job['order_status'] == 'In Transit') echo 'selected'; ?>>In Transit</option>
-                                                    <option value="Delivered" <?php if($job['order_status'] == 'Delivered') echo 'selected'; ?>>Delivered</option>
-                                                    <option value="Cancelled">Cancel &amp; Release Job</option>
-                                                </select>
-                                                <button type="submit" class="btn btn-primary btn-sm" style="padding: 8px 12px;">Save</button>
-                                            </form>
+                                        <td style="text-align:right;">
+                                            <?php if (empty($job['transporter_confirmed'])): ?>
+                                                <div style="display:flex; gap:8px; justify-content:flex-end; align-items:center; flex-wrap:wrap;">
+                                                    <a href="order_details_pdf.php?order_id=<?php echo $job['order_id']; ?>" target="_blank" class="btn btn-primary btn-sm" style="text-decoration:none;">📄 Download Details</a>
+                                                    <form action="transporter.php" method="POST" style="display:inline;">
+                                                        <input type="hidden" name="confirm_job" value="1">
+                                                        <input type="hidden" name="order_id" value="<?php echo $job['order_id']; ?>">
+                                                        <button type="submit" class="btn btn-success btn-sm">✅ Approve</button>
+                                                    </form>
+                                                    <form action="transporter.php" method="POST" style="display:inline;"
+                                                        onsubmit="return confirm('Reject this job? It will be released back to the buyer.');">
+                                                        <input type="hidden" name="reject_job" value="1">
+                                                        <input type="hidden" name="order_id" value="<?php echo $job['order_id']; ?>">
+                                                        <button type="submit" class="btn btn-danger btn-sm">❌ Reject</button>
+                                                    </form>
+                                                </div>
+                                            <?php else: ?>
+                                                <form action="transporter.php" method="POST" style="display: flex; gap: 8px; align-items: center; justify-content: flex-end;"
+                                                    onsubmit="var sel=this.querySelector('select[name=new_status]'); if(sel.value==='Cancelled'){ return confirm('Cancel this delivery job? It will be released back to the buyer so they can pick another transporter.'); }">
+                                                    <input type="hidden" name="update_status" value="1">
+                                                    <input type="hidden" name="order_id" value="<?php echo $job['order_id']; ?>">
+                                                    <select name="new_status" class="form-control" style="width: auto; padding: 6px 12px; font-size: 13px;">
+                                                        <option value="Approved" <?php if($job['order_status'] == 'Approved') echo 'selected'; ?>>Approved</option>
+                                                        <option value="In Transit" <?php if($job['order_status'] == 'In Transit') echo 'selected'; ?>>In Transit</option>
+                                                        <option value="Delivered" <?php if($job['order_status'] == 'Delivered') echo 'selected'; ?>>Delivered</option>
+                                                        <option value="Cancelled">Cancel &amp; Release Job</option>
+                                                    </select>
+                                                    <button type="submit" class="btn btn-primary btn-sm" style="padding: 8px 12px;">Save</button>
+                                                </form>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>

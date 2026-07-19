@@ -85,8 +85,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_rating'])) {
 
 // --- BACKEND LOGIC: SELECT TRANSPORTER (after farmer approval) ---
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['select_transporter'])) {
-    $order_id       = $_POST['order_id'];
-    $transporter_id = $_POST['transporter_id'];
+    $order_id        = $_POST['order_id'];
+    $transporter_id  = $_POST['transporter_id'];
+    $contact_name    = trim($_POST['contact_name'] ?? '');
+    $contact_email   = trim($_POST['contact_email'] ?? '');
+    $contact_mobile  = trim($_POST['contact_mobile'] ?? '');
+    $pickup_location = trim($_POST['pickup_location'] ?? '');
+
+    if ($contact_name === '' || $contact_email === '' || $contact_mobile === '' || $pickup_location === '') {
+        echo "<script>alert('Please fill in your full name, email, mobile number, and pickup location.'); window.location.href='sales.php';</script>";
+        exit;
+    }
 
     // Only allow this on the buyer's own order, and only while it's awaiting a transporter
     $verify_sql = "SELECT order_id FROM orders WHERE order_id = ? AND sales_id = ? AND order_status = 'Approved' AND transporter_id IS NULL";
@@ -98,12 +107,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['select_transporter']))
         mysqli_stmt_close($stmt_v);
 
         if ($is_valid) {
-            $assign_sql = "UPDATE orders SET transporter_id = ? WHERE order_id = ?";
+            $assign_sql = "UPDATE orders
+                           SET transporter_id = ?, transporter_confirmed = 0,
+                               contact_name = ?, contact_email = ?, contact_mobile = ?, pickup_location = ?
+                           WHERE order_id = ?";
             if ($stmt_a = mysqli_prepare($con, $assign_sql)) {
-                mysqli_stmt_bind_param($stmt_a, "ii", $transporter_id, $order_id);
+                mysqli_stmt_bind_param($stmt_a, "issssi", $transporter_id, $contact_name, $contact_email, $contact_mobile, $pickup_location, $order_id);
                 if (mysqli_stmt_execute($stmt_a)) {
                     require_once '../includes/notification_helper.php';
-                    addNotification($con, $transporter_id, "New Delivery Job! You've been selected to haul order #$order_id.");
+                    addNotification($con, $transporter_id, "New Delivery Job! Order #$order_id needs your review — download the details and Approve or Reject.");
 
                     $farmer_lookup_sql = "SELECT fl.farmer_id FROM orders o JOIN food_listings fl ON o.listing_id = fl.listing_id WHERE o.order_id = ?";
                     if ($stmt_f = mysqli_prepare($con, $farmer_lookup_sql)) {
@@ -111,11 +123,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['select_transporter']))
                         mysqli_stmt_execute($stmt_f);
                         $res_f = mysqli_stmt_get_result($stmt_f);
                         if ($row_f = mysqli_fetch_assoc($res_f)) {
-                            addNotification($con, $row_f['farmer_id'], "Order #$order_id: the buyer has selected a transporter for pickup.");
+                            addNotification($con, $row_f['farmer_id'], "Order #$order_id: the buyer has selected a transporter, awaiting their confirmation.");
                         }
                         mysqli_stmt_close($stmt_f);
                     }
-                    echo "<script>alert('Transporter selected! Your order is scheduled for pickup.'); window.location.href='sales.php';</script>";
+                    echo "<script>alert('Transporter selected! Waiting for their confirmation.'); window.location.href='sales.php';</script>";
                 } else {
                     echo "<script>alert('Failed to assign transporter. Please try again.'); window.location.href='sales.php';</script>";
                 }
@@ -187,6 +199,8 @@ if ($stmt_mo = mysqli_prepare($con, $my_orders_query)) {
     while ($row = mysqli_fetch_assoc($mo_res)) { $my_orders[] = $row; }
     mysqli_stmt_close($stmt_mo);
 }
+$my_orders_by_id = [];
+foreach ($my_orders as $mo_row) { $my_orders_by_id[$mo_row['order_id']] = $mo_row; }
 
 // For every order approved by the farmer but still waiting on a transporter,
 // look up which transporters cover that specific farmer's city.
@@ -417,10 +431,25 @@ foreach ($my_orders as $ord) {
                                     ?>
                                     <span class="badge <?php echo $mbc; ?>"><?php echo htmlspecialchars($mord['order_status']); ?></span>
                                 </td>
-                                <td><?php echo $mord['transporter_name'] ? htmlspecialchars($mord['transporter_name']) : '<span style="color:var(--text-muted); font-style:italic; font-size:12px;">Not yet assigned</span>'; ?></td>
+                                <td>
+                                    <?php if ($mord['transporter_name']): ?>
+                                        <?php echo htmlspecialchars($mord['transporter_name']); ?>
+                                        <?php if (empty($mord['transporter_confirmed'])): ?>
+                                            <span style="display:block; color:var(--warning); font-size:11px; font-style:italic;">Awaiting confirmation</span>
+                                        <?php else: ?>
+                                            <span style="display:block; color:var(--accent); font-size:11px; font-style:italic;">Confirmed</span>
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        <span style="color:var(--text-muted); font-style:italic; font-size:12px;">Not yet assigned</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td style="text-align:right;">
                                     <?php if ($mord['order_status'] === 'Approved' && empty($mord['transporter_id'])): ?>
                                         <button type="button" class="btn btn-success btn-sm" data-modal-open="transporterModal<?php echo $mord['order_id']; ?>">🚚 Select Transporter</button>
+                                    <?php elseif (!empty($mord['transporter_id']) && empty($mord['transporter_confirmed'])): ?>
+                                        <span style="color:var(--warning); font-size:12px; font-style:italic;">Waiting on transporter</span>
+                                    <?php elseif (!empty($mord['transporter_id']) && !empty($mord['transporter_confirmed'])): ?>
+                                        <a href="transporter_details_pdf.php?order_id=<?php echo $mord['order_id']; ?>" target="_blank" class="btn btn-primary btn-sm" style="text-decoration:none; display:inline-block;">📄 Download Transporter Details</a>
                                     <?php else: ?>
                                         <span style="color:var(--text-muted); font-size:12px; font-style:italic;">—</span>
                                     <?php endif; ?>
@@ -445,9 +474,34 @@ foreach ($my_orders as $ord) {
                     <?php if (empty($t_options)): ?>
                         <p style="color:var(--danger); font-size:14px;">⚠️ No transporters currently cover the farmer's area for this order. Please check back later.</p>
                     <?php else: ?>
+                        <?php $mo = $my_orders_by_id[$ord_id] ?? []; ?>
                         <form action="sales.php" method="POST">
                             <input type="hidden" name="select_transporter" value="1">
                             <input type="hidden" name="order_id" value="<?php echo $ord_id; ?>">
+
+                            <p style="color:var(--text-muted); font-size:13px; margin-top:0;">Please provide your contact and pickup details so the transporter can reach you.</p>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Full Name:</label>
+                                    <input type="text" name="contact_name" class="form-control" placeholder="Your full name" value="<?php echo htmlspecialchars($mo['contact_name'] ?? ''); ?>" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Email Address:</label>
+                                    <input type="email" name="contact_email" class="form-control" placeholder="you@example.com" value="<?php echo htmlspecialchars($mo['contact_email'] ?? ''); ?>" required>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Mobile Number:</label>
+                                    <input type="text" name="contact_mobile" class="form-control" placeholder="07X XXXXXXX" value="<?php echo htmlspecialchars($mo['contact_mobile'] ?? ''); ?>" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Pickup Location:</label>
+                                    <input type="text" name="pickup_location" class="form-control" placeholder="Address for pickup" value="<?php echo htmlspecialchars($mo['pickup_location'] ?? ''); ?>" required>
+                                </div>
+                            </div>
+
                             <div class="form-group">
                                 <label>Available transporters:</label>
                                 <select name="transporter_id" class="form-control" required>

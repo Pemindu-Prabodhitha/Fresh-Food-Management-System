@@ -19,7 +19,7 @@ if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
 
     <nav class="top-nav">
         <div class="logo-container">
-            <img src="images/logofinal.png" alt="Fresh Ceylon Logo" class="nav-logo" style="height:55px;">
+            <img src="images/logofinal.png" alt="Fresh Ceylon Logo" class="nav-logo" style="height:100px;">
             <h1 class="brand-name-dash">Fresh Ceylon</h1>
         </div>
         <div class="nav-links">
@@ -40,16 +40,33 @@ if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
                 echo '<div style="background-color:#2a1010; color:#ff6b6b; padding:12px; border-radius:6px; margin-bottom:15px; border:1px solid #ff6b6b; text-align:center; font-size:14px;">' . $_SESSION['signup_error'] . '</div>';
                 unset($_SESSION['signup_error']);
             }
+            // Keep whatever the user typed (except passwords) if the form bounced back with an error
+            $old = $_SESSION['signup_old'] ?? [];
+            unset($_SESSION['signup_old']);
             ?>
             <form id="signup-form" action="signup_action.php" method="POST" novalidate autocomplete="off">
                 <div class="form-row">
                     <div class="form-group">
                         <label for="signup-name">Full Name:</label>
-                        <input type="text" id="signup-name" name="name" class="form-control" placeholder="John Doe">
+                        <input type="text" id="signup-name" name="name" class="form-control" placeholder="John Doe" value="<?php echo htmlspecialchars($old['name'] ?? ''); ?>">
                     </div>
                     <div class="form-group">
                         <label for="signup-email">Email Address:</label>
-                        <input type="text" id="signup-email" name="email" class="form-control" placeholder="john@example.com">
+                        <input type="text" id="signup-email" name="email" class="form-control" placeholder="john@example.com" value="<?php echo htmlspecialchars($old['email'] ?? ''); ?>">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="signup-mobile">Mobile Number:</label>
+                        <input type="tel" id="signup-mobile" name="mobile_number" class="form-control" placeholder="07XXXXXXXX" value="<?php echo htmlspecialchars($old['mobile_number'] ?? ''); ?>">
+                    </div>
+                    <div class="form-group">
+                        <label for="signup-role">Select Your Role:</label>
+                        <select id="signup-role" name="role" class="form-control">
+                            <option value="Farmer" <?php if(($old['role'] ?? '') === 'Farmer') echo 'selected'; ?>>Farmer</option>
+                            <option value="Sales" <?php if(($old['role'] ?? '') === 'Sales') echo 'selected'; ?>>Sales Person</option>
+                            <option value="Transporter" <?php if(($old['role'] ?? '') === 'Transporter') echo 'selected'; ?>>Transporter</option>
+                        </select>
                     </div>
                 </div>
                 <div class="form-row">
@@ -58,17 +75,13 @@ if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
                         <input type="password" id="signup-password" name="password" class="form-control" placeholder="Min. 6 characters">
                     </div>
                     <div class="form-group">
-                        <label for="signup-role">Select Your Role:</label>
-                        <select id="signup-role" name="role" class="form-control">
-                            <option value="Farmer">Farmer</option>
-                            <option value="Sales">Sales Person</option>
-                            <option value="Transporter">Transporter</option>
-                        </select>
+                        <label for="signup-confirm-password">Confirm Password:</label>
+                        <input type="password" id="signup-confirm-password" name="confirm_password" class="form-control" placeholder="Re-type password">
                     </div>
                 </div>
                 <div class="form-group">
                     <label for="signup-location">City / Location:</label>
-                    <input type="text" id="signup-location" name="location_city" class="form-control" placeholder="Colombo, Kandy, Galle...">
+                    <input type="text" id="signup-location" name="location_city" class="form-control" placeholder="Colombo, Kandy, Galle..." value="<?php echo htmlspecialchars($old['location_city'] ?? ''); ?>">
                 </div>
                 <button type="submit" class="btn btn-success" style="margin-top:10px;">Register Account</button>
             </form>
