@@ -770,6 +770,29 @@ td, th { word-break: break-word; overflow-wrap: break-word; }
 .form-control, select, textarea, input, button { max-width: 100%; }
 pre, code { white-space: pre-wrap; word-break: break-word; }
 
+/* ============================================================
+   FLEX/GRID OVERFLOW FIX
+   Flex and grid items default to min-width:auto, which stops
+   them shrinking below their content size — the #1 cause of
+   horizontal overflow on phones (rating badges, form rows,
+   card footers, modal headers, etc). Resetting it globally is
+   safe: it doesn't override any explicit width/min-width rule
+   already set elsewhere (those are more specific and still win).
+   ============================================================ */
+*, *::before, *::after {
+    min-width: 0;
+}
+
+/* Belt-and-braces: stop the page itself from ever scrolling
+   sideways, even if something still misbehaves. Inner scroll
+   areas (.table-container, .alert-box, .feedback-scroll-area)
+   keep their own independent overflow-x/y, so this doesn't
+   hide any content — it just guarantees the outer page can't. */
+html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
 /* Reusable logo sizing classes so pages no longer need fixed
    inline pixel heights that can't shrink on small screens */
 .nav-logo-hero { height: 70px; width: auto; border-radius: 8px; }
