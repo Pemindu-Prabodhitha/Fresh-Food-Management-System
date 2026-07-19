@@ -117,10 +117,9 @@ if (isset($_GET['delete_listing'])) {
     }
 }
 
-// --- BACKEND: APPROVE ORDER & ASSIGN TRANSPORTER ---
+// --- BACKEND: APPROVE ORDER (buyer selects transporter afterwards) ---
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['approve_order'])) {
     $order_id        = $_POST['order_id'];
-    $transporter_id  = $_POST['transporter_id'];
     $listing_id      = $_POST['listing_id'];
     $quantity_ordered = $_POST['quantity_ordered'];
 
@@ -130,20 +129,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['approve_order'])) {
         mysqli_stmt_execute($stmt2);
         if (mysqli_stmt_affected_rows($stmt2) > 0) {
             mysqli_stmt_close($stmt2);
-            $approve_sql = "UPDATE orders SET order_status = 'Approved', transporter_id = ? WHERE order_id = ?";
+            $approve_sql = "UPDATE orders SET order_status = 'Approved' WHERE order_id = ?";
             if ($stmt1 = mysqli_prepare($con, $approve_sql)) {
-                mysqli_stmt_bind_param($stmt1, "ii", $transporter_id, $order_id);
+                mysqli_stmt_bind_param($stmt1, "i", $order_id);
                 mysqli_stmt_execute($stmt1);
                 mysqli_stmt_close($stmt1);
                 require_once '../includes/notification_helper.php';
-                addNotification($con, $transporter_id, "New Job Assigned! You have been auto-matched to haul a crop batch order (#$order_id).");
                 $sales_lookup_sql = "SELECT sales_id FROM orders WHERE order_id = ?";
                 if ($stmt_lookup = mysqli_prepare($con, $sales_lookup_sql)) {
                     mysqli_stmt_bind_param($stmt_lookup, "i", $order_id);
                     mysqli_stmt_execute($stmt_lookup);
                     $res_lookup = mysqli_stmt_get_result($stmt_lookup);
                     if ($row_lookup = mysqli_fetch_assoc($res_lookup)) {
-                        addNotification($con, $row_lookup['sales_id'], "Your pending order (#$order_id) has been approved by the farmer and a transporter has been dispatched!");
+                        addNotification($con, $row_lookup['sales_id'], "Your order (#$order_id) has been approved by the farmer! Please select a transporter to schedule pickup.");
                     }
                     mysqli_stmt_close($stmt_lookup);
                 }
@@ -154,10 +152,41 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['approve_order'])) {
                 mysqli_stmt_execute($stmt3);
                 mysqli_stmt_close($stmt3);
             }
-            echo "<script>alert('Order approved and Transporter assigned!'); window.location.href='farmer.php';</script>";
+            echo "<script>alert('Order approved! The buyer can now choose a transporter.'); window.location.href='farmer.php';</script>";
         } else {
             mysqli_stmt_close($stmt2);
             echo "<script>alert('Error: Not enough stock!'); window.location.href='farmer.php';</script>";
+        }
+    }
+    exit;
+}
+
+// --- BACKEND: REJECT ORDER ---
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['reject_order'])) {
+    $order_id = $_POST['order_id'];
+
+    $reject_sql = "UPDATE orders SET order_status = 'Cancelled' WHERE order_id = ? AND order_status = 'Pending Approval'";
+    if ($stmt = mysqli_prepare($con, $reject_sql)) {
+        mysqli_stmt_bind_param($stmt, "i", $order_id);
+        mysqli_stmt_execute($stmt);
+        $affected = mysqli_stmt_affected_rows($stmt);
+        mysqli_stmt_close($stmt);
+
+        if ($affected > 0) {
+            require_once '../includes/notification_helper.php';
+            $sales_lookup_sql = "SELECT sales_id FROM orders WHERE order_id = ?";
+            if ($stmt_lookup = mysqli_prepare($con, $sales_lookup_sql)) {
+                mysqli_stmt_bind_param($stmt_lookup, "i", $order_id);
+                mysqli_stmt_execute($stmt_lookup);
+                $res_lookup = mysqli_stmt_get_result($stmt_lookup);
+                if ($row_lookup = mysqli_fetch_assoc($res_lookup)) {
+                    addNotification($con, $row_lookup['sales_id'], "Your order (#$order_id) was declined by the farmer.");
+                }
+                mysqli_stmt_close($stmt_lookup);
+            }
+            echo "<script>alert('Order rejected.'); window.location.href='farmer.php';</script>";
+        } else {
+            echo "<script>alert('Could not reject this order (it may already be processed).'); window.location.href='farmer.php';</script>";
         }
     }
     exit;
@@ -183,16 +212,26 @@ mysqli_stmt_execute($orders_stmt);
 $incoming_orders = mysqli_fetch_all(mysqli_stmt_get_result($orders_stmt), MYSQLI_ASSOC);
 mysqli_stmt_close($orders_stmt);
 
-// --- MATCHING ENGINE ---
-$matching_sql = "SELECT t_area.transporter_id, u.name AS transporter_name
-                 FROM transporter_service_areas t_area
-                 JOIN users u ON t_area.transporter_id = u.user_id
-                 WHERE LOWER(t_area.covered_city) = LOWER(?)";
-$match_stmt = mysqli_prepare($con, $matching_sql);
-mysqli_stmt_bind_param($match_stmt, "s", $farmer_city);
-mysqli_stmt_execute($match_stmt);
-$available_transporters = mysqli_fetch_all(mysqli_stmt_get_result($match_stmt), MYSQLI_ASSOC);
-mysqli_stmt_close($match_stmt);
+// --- FETCH ALL ORDERS FOR THIS FARMER'S LISTINGS (full lifecycle tracking) ---
+$tracking_query = "SELECT o.*, fl.food_name, u_buyer.name AS buyer_name, u_trans.name AS transporter_name
+                    FROM orders o
+                    JOIN food_listings fl ON o.listing_id = fl.listing_id
+                    JOIN users u_buyer ON o.sales_id = u_buyer.user_id
+                    LEFT JOIN users u_trans ON o.transporter_id = u_trans.user_id
+                    WHERE fl.farmer_id = ?
+                    ORDER BY o.created_at DESC";
+$farmer_orders = [];
+if ($stmt_track = mysqli_prepare($con, $tracking_query)) {
+    mysqli_stmt_bind_param($stmt_track, "i", $farmer_id);
+    mysqli_stmt_execute($stmt_track);
+    $track_res = mysqli_stmt_get_result($stmt_track);
+    while ($row = mysqli_fetch_assoc($track_res)) { $farmer_orders[] = $row; }
+    mysqli_stmt_close($stmt_track);
+}
+$active_order_count = 0;
+foreach ($farmer_orders as $fo) {
+    if (!in_array($fo['order_status'], ['Delivered', 'Cancelled'])) $active_order_count++;
+}
 
 // --- NOTIFICATIONS ---
 $my_notifications = [];
@@ -281,6 +320,10 @@ if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
                 📥 Incoming Orders
                 <?php if (!empty($incoming_orders)): ?><span class="tab-count"><?php echo count($incoming_orders); ?></span><?php endif; ?>
             </button>
+            <button type="button" class="tab-btn" data-tab-target="tab-order-tracking" onclick="showDashboardTab('tab-order-tracking', this)">
+                🚚 Order Tracking
+                <?php if ($active_order_count > 0): ?><span class="tab-count"><?php echo $active_order_count; ?></span><?php endif; ?>
+            </button>
             <button type="button" class="tab-btn" data-tab-target="tab-my-listings" onclick="showDashboardTab('tab-my-listings', this)">📦 My Listings</button>
         </div>
 
@@ -313,7 +356,7 @@ if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
                         <th>Crop Ordered</th>
                         <th>Qty Requested</th>
                         <th>Total Payout</th>
-                        <th>Assign Transporter &amp; Approve</th>
+                        <th style="text-align:right;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -326,23 +369,14 @@ if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
                                 <td style="color:lightgreen; font-weight:bold;"><?php echo htmlspecialchars($order['food_name']); ?></td>
                                 <td><?php echo htmlspecialchars($order['quantity_ordered']); ?> kg</td>
                                 <td style="color:white; font-weight:bold;">LKR <?php echo number_format($order['total_price'], 2); ?></td>
-                                <td>
-                                    <form action="farmer.php" method="POST" style="display:flex; gap:10px; align-items:center;">
-                                        <input type="hidden" name="approve_order" value="1">
+                                <td style="text-align:right;">
+                                    <form action="farmer.php" method="POST" style="display:flex; gap:8px; justify-content:flex-end;">
                                         <input type="hidden" name="order_id" value="<?php echo $order['order_id']; ?>">
                                         <input type="hidden" name="listing_id" value="<?php echo $order['listing_id']; ?>">
                                         <input type="hidden" name="quantity_ordered" value="<?php echo $order['quantity_ordered']; ?>">
-                                        <?php if (empty($available_transporters)): ?>
-                                            <span style="color:#ff8080; font-size:13px;">⚠️ No transporters in <strong><?php echo htmlspecialchars($farmer_city); ?></strong></span>
-                                        <?php else: ?>
-                                            <select name="transporter_id" class="form-control" style="width:auto;" required>
-                                                <option value="">-- Choose Transporter --</option>
-                                                <?php foreach ($available_transporters as $t): ?>
-                                                    <option value="<?php echo $t['transporter_id']; ?>"><?php echo htmlspecialchars($t['transporter_name']); ?></option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                            <button type="submit" class="btn btn-success btn-sm">Approve &amp; Assign</button>
-                                        <?php endif; ?>
+                                        <button type="submit" name="approve_order" value="1" class="btn btn-success btn-sm">✅ Approve</button>
+                                        <button type="submit" name="reject_order" value="1" class="btn btn-danger btn-sm"
+                                            onclick="return confirm('Reject this order from <?php echo htmlspecialchars(addslashes($order['buyer_name'])); ?>?');">❌ Reject</button>
                                     </form>
                                 </td>
                             </tr>
@@ -352,6 +386,60 @@ if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
             </table>
         </div>
         </div><!-- /tab-incoming-orders -->
+
+        <!-- Tab: Order Tracking -->
+        <div id="tab-order-tracking" class="tab-content">
+        <h3 style="color:lightgreen; margin-bottom:12px;">🚚 Order Tracking</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Buyer</th>
+                        <th>Crop</th>
+                        <th>Qty</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Transporter</th>
+                        <th>Placed</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($farmer_orders)): ?>
+                        <tr><td colspan="8" style="text-align:center; color:#666; font-style:italic; padding:20px;">No orders yet for your listings.</td></tr>
+                    <?php else: ?>
+                        <?php foreach ($farmer_orders as $fo): ?>
+                            <tr>
+                                <td style="font-weight:bold;">#<?php echo $fo['order_id']; ?></td>
+                                <td><?php echo htmlspecialchars($fo['buyer_name']); ?></td>
+                                <td style="color:lightgreen; font-weight:bold;"><?php echo htmlspecialchars($fo['food_name']); ?></td>
+                                <td><?php echo htmlspecialchars($fo['quantity_ordered']); ?> kg</td>
+                                <td style="color:white; font-weight:bold;">LKR <?php echo number_format($fo['total_price'], 2); ?></td>
+                                <td>
+                                    <?php
+                                    $fbc = 'badge-pending';
+                                    if ($fo['order_status'] == 'Delivered') $fbc = 'badge-available';
+                                    if ($fo['order_status'] == 'Cancelled') $fbc = 'badge-sold';
+                                    ?>
+                                    <span class="badge <?php echo $fbc; ?>"><?php echo htmlspecialchars($fo['order_status']); ?></span>
+                                </td>
+                                <td>
+                                    <?php if ($fo['transporter_name']): ?>
+                                        <?php echo htmlspecialchars($fo['transporter_name']); ?>
+                                    <?php elseif ($fo['order_status'] === 'Approved'): ?>
+                                        <span style="color:var(--warning); font-style:italic; font-size:12px;">Awaiting buyer's pick</span>
+                                    <?php else: ?>
+                                        <span style="color:var(--text-muted); font-style:italic; font-size:12px;">—</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td style="font-size:13px; color:#888;"><?php echo date('Y-m-d', strtotime($fo['created_at'])); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+        </div><!-- /tab-order-tracking -->
 
         <!-- Tab: My Listings -->
         <div id="tab-my-listings" class="tab-content">

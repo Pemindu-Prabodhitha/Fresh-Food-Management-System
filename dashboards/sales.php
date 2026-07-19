@@ -83,6 +83,51 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_rating'])) {
     }
 }
 
+// --- BACKEND LOGIC: SELECT TRANSPORTER (after farmer approval) ---
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['select_transporter'])) {
+    $order_id       = $_POST['order_id'];
+    $transporter_id = $_POST['transporter_id'];
+
+    // Only allow this on the buyer's own order, and only while it's awaiting a transporter
+    $verify_sql = "SELECT order_id FROM orders WHERE order_id = ? AND sales_id = ? AND order_status = 'Approved' AND transporter_id IS NULL";
+    if ($stmt_v = mysqli_prepare($con, $verify_sql)) {
+        mysqli_stmt_bind_param($stmt_v, "ii", $order_id, $sales_id);
+        mysqli_stmt_execute($stmt_v);
+        $res_v = mysqli_stmt_get_result($stmt_v);
+        $is_valid = mysqli_fetch_assoc($res_v) ? true : false;
+        mysqli_stmt_close($stmt_v);
+
+        if ($is_valid) {
+            $assign_sql = "UPDATE orders SET transporter_id = ? WHERE order_id = ?";
+            if ($stmt_a = mysqli_prepare($con, $assign_sql)) {
+                mysqli_stmt_bind_param($stmt_a, "ii", $transporter_id, $order_id);
+                if (mysqli_stmt_execute($stmt_a)) {
+                    require_once '../includes/notification_helper.php';
+                    addNotification($con, $transporter_id, "New Delivery Job! You've been selected to haul order #$order_id.");
+
+                    $farmer_lookup_sql = "SELECT fl.farmer_id FROM orders o JOIN food_listings fl ON o.listing_id = fl.listing_id WHERE o.order_id = ?";
+                    if ($stmt_f = mysqli_prepare($con, $farmer_lookup_sql)) {
+                        mysqli_stmt_bind_param($stmt_f, "i", $order_id);
+                        mysqli_stmt_execute($stmt_f);
+                        $res_f = mysqli_stmt_get_result($stmt_f);
+                        if ($row_f = mysqli_fetch_assoc($res_f)) {
+                            addNotification($con, $row_f['farmer_id'], "Order #$order_id: the buyer has selected a transporter for pickup.");
+                        }
+                        mysqli_stmt_close($stmt_f);
+                    }
+                    echo "<script>alert('Transporter selected! Your order is scheduled for pickup.'); window.location.href='sales.php';</script>";
+                } else {
+                    echo "<script>alert('Failed to assign transporter. Please try again.'); window.location.href='sales.php';</script>";
+                }
+                mysqli_stmt_close($stmt_a);
+            }
+        } else {
+            echo "<script>alert('This order is not currently awaiting a transporter.'); window.location.href='sales.php';</script>";
+        }
+    }
+    exit;
+}
+
 // --- FETCH ALL AVAILABLE FOOD LISTINGS WITH FARMER DETAILS ---
 $query = "SELECT fl.*, u.name AS farmer_name, u.location_city 
           FROM food_listings fl 
@@ -122,6 +167,49 @@ if ($stmt_comp = mysqli_prepare($con, $completed_query)) {
         $unreviewed_orders[] = $row;
     }
     mysqli_stmt_close($stmt_comp);
+}
+
+// --- FETCH ALL OF THIS BUYER'S ORDERS (for the My Orders tab) ---
+$my_orders_query = "SELECT o.*, fl.food_name, fl.farmer_id,
+                            u_farmer.name AS farmer_name, u_farmer.location_city AS farmer_city,
+                            u_trans.name AS transporter_name
+                     FROM orders o
+                     JOIN food_listings fl ON o.listing_id = fl.listing_id
+                     JOIN users u_farmer ON fl.farmer_id = u_farmer.user_id
+                     LEFT JOIN users u_trans ON o.transporter_id = u_trans.user_id
+                     WHERE o.sales_id = ?
+                     ORDER BY o.created_at DESC";
+$my_orders = [];
+if ($stmt_mo = mysqli_prepare($con, $my_orders_query)) {
+    mysqli_stmt_bind_param($stmt_mo, "i", $sales_id);
+    mysqli_stmt_execute($stmt_mo);
+    $mo_res = mysqli_stmt_get_result($stmt_mo);
+    while ($row = mysqli_fetch_assoc($mo_res)) { $my_orders[] = $row; }
+    mysqli_stmt_close($stmt_mo);
+}
+
+// For every order approved by the farmer but still waiting on a transporter,
+// look up which transporters cover that specific farmer's city.
+$transporter_options_by_order = [];
+$awaiting_transporter_count = 0;
+foreach ($my_orders as $ord) {
+    if ($ord['order_status'] === 'Approved' && empty($ord['transporter_id'])) {
+        $awaiting_transporter_count++;
+        $tsql = "SELECT t_area.transporter_id, u.name AS transporter_name,
+                        ROUND(AVG(r.score), 1) AS avg_score, COUNT(r.rating_id) AS review_count
+                 FROM transporter_service_areas t_area
+                 JOIN users u ON t_area.transporter_id = u.user_id
+                 LEFT JOIN ratings r ON r.reviewee_id = u.user_id
+                 WHERE LOWER(t_area.covered_city) = LOWER(?)
+                 GROUP BY t_area.transporter_id, u.name
+                 ORDER BY avg_score DESC";
+        if ($tstmt = mysqli_prepare($con, $tsql)) {
+            mysqli_stmt_bind_param($tstmt, "s", $ord['farmer_city']);
+            mysqli_stmt_execute($tstmt);
+            $transporter_options_by_order[$ord['order_id']] = mysqli_fetch_all(mysqli_stmt_get_result($tstmt), MYSQLI_ASSOC);
+            mysqli_stmt_close($tstmt);
+        }
+    }
 }
 ?>
 
@@ -169,7 +257,7 @@ if ($stmt_comp = mysqli_prepare($con, $completed_query)) {
         <main class="app-main">
 
     <div class="dashboard-header">
-        <span class="welcome-msg">Welcome back, <strong><?php echo htmlspecialchars($sales_name); ?></strong>.</span>
+        <span class="welcome-msg">Welcome back, <strong><?php echo htmlspecialchars($sales_name); ?></strong> (Sales Buyer)</span>
     </div>
 
     <div style="max-width: 1400px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 30px;">
@@ -181,6 +269,10 @@ if ($stmt_comp = mysqli_prepare($con, $completed_query)) {
                 <?php if (!empty($my_notifications)): ?><span class="tab-count"><?php echo count($my_notifications); ?></span><?php endif; ?>
             </button>
             <button type="button" class="tab-btn" data-tab-target="tab-marketplace" onclick="showDashboardTab('tab-marketplace', this)">🛒 Marketplace</button>
+            <button type="button" class="tab-btn" data-tab-target="tab-my-orders" onclick="showDashboardTab('tab-my-orders', this)">
+                📦 My Orders
+                <?php if ($awaiting_transporter_count > 0): ?><span class="tab-count"><?php echo $awaiting_transporter_count; ?></span><?php endif; ?>
+            </button>
             <button type="button" class="tab-btn" data-tab-target="tab-feedback" onclick="showDashboardTab('tab-feedback', this)">
                 ⭐ Feedback &amp; Reviews
                 <?php if (!empty($unreviewed_orders)): ?><span class="tab-count"><?php echo count($unreviewed_orders); ?></span><?php endif; ?>
@@ -288,6 +380,97 @@ if ($stmt_comp = mysqli_prepare($con, $completed_query)) {
         </div>
 
         </div><!-- /tab-marketplace -->
+
+        <!-- Tab: My Orders -->
+        <div id="tab-my-orders" class="tab-content">
+        <h3 style="color:lightgreen; margin-bottom:12px;">📦 My Orders</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Crop</th>
+                        <th>Farmer</th>
+                        <th>Qty</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Transporter</th>
+                        <th style="text-align:right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($my_orders)): ?>
+                        <tr><td colspan="8" style="text-align:center; color:#666; font-style:italic; padding:20px;">You haven't placed any orders yet. Browse the Marketplace to get started!</td></tr>
+                    <?php else: ?>
+                        <?php foreach ($my_orders as $mord): ?>
+                            <tr>
+                                <td style="font-weight:bold;">#<?php echo $mord['order_id']; ?></td>
+                                <td style="color:lightgreen; font-weight:bold;"><?php echo htmlspecialchars($mord['food_name']); ?></td>
+                                <td><?php echo htmlspecialchars($mord['farmer_name']); ?></td>
+                                <td><?php echo htmlspecialchars($mord['quantity_ordered']); ?> kg</td>
+                                <td style="color:white; font-weight:bold;">LKR <?php echo number_format($mord['total_price'], 2); ?></td>
+                                <td>
+                                    <?php
+                                    $mbc = 'badge-pending';
+                                    if ($mord['order_status'] == 'Delivered') $mbc = 'badge-available';
+                                    if ($mord['order_status'] == 'Cancelled') $mbc = 'badge-sold';
+                                    ?>
+                                    <span class="badge <?php echo $mbc; ?>"><?php echo htmlspecialchars($mord['order_status']); ?></span>
+                                </td>
+                                <td><?php echo $mord['transporter_name'] ? htmlspecialchars($mord['transporter_name']) : '<span style="color:var(--text-muted); font-style:italic; font-size:12px;">Not yet assigned</span>'; ?></td>
+                                <td style="text-align:right;">
+                                    <?php if ($mord['order_status'] === 'Approved' && empty($mord['transporter_id'])): ?>
+                                        <button type="button" class="btn btn-success btn-sm" data-modal-open="transporterModal<?php echo $mord['order_id']; ?>">🚚 Select Transporter</button>
+                                    <?php else: ?>
+                                        <span style="color:var(--text-muted); font-size:12px; font-style:italic;">—</span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+        </div><!-- /tab-my-orders -->
+
+        <!-- Transporter selection modals: one per order awaiting a transporter -->
+        <?php foreach ($transporter_options_by_order as $ord_id => $t_options): ?>
+        <div class="modal-overlay" id="transporterModal<?php echo $ord_id; ?>">
+            <div class="modal-box">
+                <div class="modal-header">
+                    <h3>🚚 Select Transporter — Order #<?php echo $ord_id; ?></h3>
+                    <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <?php if (empty($t_options)): ?>
+                        <p style="color:var(--danger); font-size:14px;">⚠️ No transporters currently cover the farmer's area for this order. Please check back later.</p>
+                    <?php else: ?>
+                        <form action="sales.php" method="POST">
+                            <input type="hidden" name="select_transporter" value="1">
+                            <input type="hidden" name="order_id" value="<?php echo $ord_id; ?>">
+                            <div class="form-group">
+                                <label>Available transporters:</label>
+                                <select name="transporter_id" class="form-control" required>
+                                    <option value="">-- Select Transporter --</option>
+                                    <?php foreach ($t_options as $t): ?>
+                                        <option value="<?php echo $t['transporter_id']; ?>">
+                                            <?php echo htmlspecialchars($t['transporter_name']); ?>
+                                            <?php if ($t['review_count'] > 0): ?>
+                                                — ⭐ <?php echo $t['avg_score']; ?>/5 (<?php echo $t['review_count']; ?> reviews)
+                                            <?php else: ?>
+                                                — No reviews yet
+                                            <?php endif; ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-success">Confirm Transporter</button>
+                        </form>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div><!-- /transporterModal<?php echo $ord_id; ?> -->
+        <?php endforeach; ?>
 
         <!-- Tab: Feedback & Reviews -->
         <div id="tab-feedback" class="tab-content">

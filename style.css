@@ -99,6 +99,22 @@ h1, h2, h3, h4 { font-family: var(--font-display); }
     font-weight: 600;
 }
 
+/* Wider variant for forms with more fields (e.g. registration) */
+.auth-container.auth-wide {
+    max-width: 760px;
+}
+
+/* Pairs up fields side-by-side inside a wide auth form; stacks on narrow screens */
+.form-row {
+    display: flex;
+    gap: 18px;
+}
+.form-row .form-group { flex: 1; min-width: 0; }
+
+@media (max-width: 620px) {
+    .form-row { flex-direction: column; gap: 0; }
+}
+
 /* ============================================================
    APP SHELL + VERTICAL NAVIGATION (Dashboards)
    ============================================================ */
