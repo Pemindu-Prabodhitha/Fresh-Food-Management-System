@@ -66,6 +66,34 @@ function handleImageUpload($file_input) {
     return ['success' => false, 'path' => null, 'error' => 'The server could not save the uploaded file (move_uploaded_file failed).'];
 }
 
+// --- BACKEND: SUBMIT INQUIRY TO ADMIN ---
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_inquiry'])) {
+    $subject     = trim($_POST['subject']);
+    $message_txt = trim($_POST['message']);
+
+    if ($subject === '' || $message_txt === '') {
+        echo "<script>alert('Please fill in both subject and message.'); window.location.href='farmer.php';</script>";
+        exit;
+    }
+
+    $inq_sql = "INSERT INTO inquiries (user_id, subject, message) VALUES (?, ?, ?)";
+    if ($stmt = mysqli_prepare($con, $inq_sql)) {
+        mysqli_stmt_bind_param($stmt, "iss", $farmer_id, $subject, $message_txt);
+        if (mysqli_stmt_execute($stmt)) {
+            require_once '../includes/notification_helper.php';
+            $admins_res = mysqli_query($con, "SELECT user_id FROM users WHERE role = 'Admin'");
+            while ($admin_row = mysqli_fetch_assoc($admins_res)) {
+                addNotification($con, $admin_row['user_id'], "New inquiry from " . $farmer_name . " (Farmer): \"$subject\"");
+            }
+            echo "<script>alert('Your message has been sent to the admin team.'); window.location.href='farmer.php';</script>";
+        } else {
+            echo "<script>alert('Failed to send your inquiry. Please try again.'); window.location.href='farmer.php';</script>";
+        }
+        mysqli_stmt_close($stmt);
+    }
+    exit;
+}
+
 // --- BACKEND: INSERT NEW LISTING ---
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_listing'])) {
     $food_name   = trim($_POST['food_name']);
@@ -257,6 +285,18 @@ if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
     }
     mysqli_stmt_close($stmt_rating);
 }
+// --- FETCH MY INQUIRIES TO ADMIN ---
+$my_inquiries = [];
+$inq_query = "SELECT * FROM inquiries WHERE user_id = ? ORDER BY created_at DESC";
+if ($stmt_inq = mysqli_prepare($con, $inq_query)) {
+    mysqli_stmt_bind_param($stmt_inq, "i", $farmer_id);
+    mysqli_stmt_execute($stmt_inq);
+    $inq_res = mysqli_stmt_get_result($stmt_inq);
+    while ($row = mysqli_fetch_assoc($inq_res)) { $my_inquiries[] = $row; }
+    mysqli_stmt_close($stmt_inq);
+}
+$open_inquiry_count = 0;
+foreach ($my_inquiries as $iq) { if ($iq['status'] === 'Open') $open_inquiry_count++; }
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -267,7 +307,7 @@ if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
     (function(){try{var t=localStorage.getItem('fc-theme');document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');}catch(e){}})();
     </script>
     <title>Farmer Dashboard - Fresh Ceylon</title>
-    <link rel="stylesheet" href="../style.css?v=3">
+    <link rel="stylesheet" href="../style.css?v=4">
 </head>
 <body class="has-sidenav">
 
@@ -325,6 +365,10 @@ if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
                 <?php if ($active_order_count > 0): ?><span class="tab-count"><?php echo $active_order_count; ?></span><?php endif; ?>
             </button>
             <button type="button" class="tab-btn" data-tab-target="tab-my-listings" onclick="showDashboardTab('tab-my-listings', this)">📦 My Listings</button>
+            <button type="button" class="tab-btn" data-tab-target="tab-contact-admin" onclick="showDashboardTab('tab-contact-admin', this)">
+                📨 Contact Admin
+                <?php if ($open_inquiry_count > 0): ?><span class="tab-count"><?php echo $open_inquiry_count; ?></span><?php endif; ?>
+            </button>
         </div>
 
         <!-- Tab: Overview -->
@@ -511,6 +555,54 @@ if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
             </div>
 
         </div><!-- /tab-my-listings -->
+
+        <!-- Tab: Contact Admin -->
+        <div id="tab-contact-admin" class="tab-content">
+            <div class="feedback-box" style="margin-top:0;">
+                <h3>📨 Send a New Inquiry</h3>
+                <form action="farmer.php" method="POST" class="feedback-form">
+                    <input type="hidden" name="submit_inquiry" value="1">
+                    <div class="form-group">
+                        <label>Subject:</label>
+                        <input type="text" name="subject" class="form-control" placeholder="e.g. Issue with my listing" maxlength="150" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Message:</label>
+                        <textarea name="message" class="form-control" rows="4" placeholder="Describe your issue or question for the admin team..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width:auto; padding:11px 26px;">Send to Admin</button>
+                </form>
+            </div>
+
+            <h3 style="color:lightgreen; margin:25px 0 14px;">📋 Your Inquiry History</h3>
+            <?php if (empty($my_inquiries)): ?>
+                <p style="color:var(--text-muted); font-style:italic;">You haven't contacted admin yet.</p>
+            <?php else: ?>
+                <div class="inquiry-list">
+                    <?php foreach ($my_inquiries as $inq): ?>
+                        <div class="inquiry-card">
+                            <div class="inquiry-header">
+                                <div>
+                                    <strong class="inquiry-subject"><?php echo htmlspecialchars($inq['subject']); ?></strong>
+                                    <div class="inquiry-meta">Sent: <?php echo date('Y-m-d h:i A', strtotime($inq['created_at'])); ?></div>
+                                </div>
+                                <span class="badge <?php echo $inq['status'] === 'Open' ? 'badge-pending' : 'badge-available'; ?>">
+                                    <?php echo $inq['status'] === 'Open' ? 'Awaiting Reply' : 'Resolved'; ?>
+                                </span>
+                            </div>
+                            <p class="inquiry-message"><?php echo nl2br(htmlspecialchars($inq['message'])); ?></p>
+                            <?php if (!empty($inq['admin_reply'])): ?>
+                                <div class="inquiry-reply">
+                                    <span class="inquiry-reply-label">Admin Reply</span>
+                                    <p class="inquiry-reply-text"><?php echo nl2br(htmlspecialchars($inq['admin_reply'])); ?></p>
+                                    <span class="inquiry-date">Replied: <?php echo date('Y-m-d h:i A', strtotime($inq['replied_at'])); ?></span>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div><!-- /tab-contact-admin -->
 
         <!-- Add New Produce Modal -->
         <div class="modal-overlay" id="addProduceModal">

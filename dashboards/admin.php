@@ -133,6 +133,38 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['broadcast'])) {
     }
 }
 
+// --- ADMIN ACTION: REPLY TO INQUIRY ---
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['reply_inquiry'])) {
+    $inquiry_id  = $_POST['inquiry_id'];
+    $admin_reply = trim($_POST['admin_reply']);
+
+    if ($admin_reply === '') {
+        $error = "Reply message cannot be empty.";
+    } else {
+        $reply_sql = "UPDATE inquiries SET admin_reply = ?, status = 'Resolved', replied_at = NOW() WHERE inquiry_id = ?";
+        if ($stmt = mysqli_prepare($con, $reply_sql)) {
+            mysqli_stmt_bind_param($stmt, "si", $admin_reply, $inquiry_id);
+            if (mysqli_stmt_execute($stmt)) {
+                $message = "Reply sent successfully.";
+                require_once '../includes/notification_helper.php';
+                $lookup_sql = "SELECT user_id, subject FROM inquiries WHERE inquiry_id = ?";
+                if ($stmt_l = mysqli_prepare($con, $lookup_sql)) {
+                    mysqli_stmt_bind_param($stmt_l, "i", $inquiry_id);
+                    mysqli_stmt_execute($stmt_l);
+                    $res_l = mysqli_stmt_get_result($stmt_l);
+                    if ($row_l = mysqli_fetch_assoc($res_l)) {
+                        addNotification($con, $row_l['user_id'], "Admin replied to your inquiry \"" . $row_l['subject'] . "\". Check the Contact Admin tab for details.");
+                    }
+                    mysqli_stmt_close($stmt_l);
+                }
+            } else {
+                $error = "Error sending reply.";
+            }
+            mysqli_stmt_close($stmt);
+        }
+    }
+}
+
 // --- FETCH SYSTEM-WIDE STATISTICS ---
 // Total users
 $stats_users = mysqli_fetch_assoc(mysqli_query($con, "SELECT COUNT(*) as count FROM users"))['count'];
@@ -171,6 +203,15 @@ $ratings_query = "SELECT r.*, u_rev.name AS reviewer_name, u_revee.name AS revie
                   ORDER BY r.created_at DESC";
 $ratings_res = mysqli_query($con, $ratings_query);
 $all_ratings = mysqli_fetch_all($ratings_res, MYSQLI_ASSOC);
+// --- FETCH ALL INQUIRIES ---
+$inquiries_query = "SELECT inq.*, u.name AS user_name, u.role AS user_role, u.email AS user_email
+                     FROM inquiries inq
+                     JOIN users u ON inq.user_id = u.user_id
+                     ORDER BY (inq.status = 'Open') DESC, inq.created_at DESC";
+$inquiries_res = mysqli_query($con, $inquiries_query);
+$all_inquiries = mysqli_fetch_all($inquiries_res, MYSQLI_ASSOC);
+$open_inquiry_count = 0;
+foreach ($all_inquiries as $iq) { if ($iq['status'] === 'Open') $open_inquiry_count++; }
 ?>
 
 <!DOCTYPE html>
@@ -179,7 +220,7 @@ $all_ratings = mysqli_fetch_all($ratings_res, MYSQLI_ASSOC);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel - Fresh Ceylon</title>
-    <link rel="stylesheet" href="../style.css?v=3">
+    <link rel="stylesheet" href="../style.css?v=4">
     <style>
         .admin-action-btn {
             background: none;
@@ -260,6 +301,10 @@ $all_ratings = mysqli_fetch_all($ratings_res, MYSQLI_ASSOC);
             <button class="tab-btn" onclick="showTab('listings', this)">Produce Listings</button>
             <button class="tab-btn" onclick="showTab('orders', this)">Sales Orders</button>
             <button class="tab-btn" onclick="showTab('ratings', this)">Accountability Reviews</button>
+            <button class="tab-btn" onclick="showTab('inquiries', this)">
+                Inquiries
+                <?php if ($open_inquiry_count > 0): ?><span class="tab-count"><?php echo $open_inquiry_count; ?></span><?php endif; ?>
+            </button>
             <button class="tab-btn" onclick="showTab('broadcast', this)">System Broadcast</button>
         </div>
 
@@ -489,7 +534,53 @@ $all_ratings = mysqli_fetch_all($ratings_res, MYSQLI_ASSOC);
             </div>
         </div>
 
-        <!-- Tab 5: System Broadcast -->
+        <!-- Tab 5: Inquiries -->
+        <div id="inquiries" class="tab-content">
+            <h3 style="font-size: 20px; margin-bottom: 20px; color: var(--primary);">📨 User Inquiries</h3>
+            <?php if (empty($all_inquiries)): ?>
+                <p style="text-align:center; color:var(--text-muted); font-style:italic; padding:25px;">No inquiries submitted yet.</p>
+            <?php else: ?>
+                <div class="inquiry-list">
+                    <?php foreach ($all_inquiries as $inq): ?>
+                        <div class="inquiry-card">
+                            <div class="inquiry-header">
+                                <div>
+                                    <strong class="inquiry-subject"><?php echo htmlspecialchars($inq['subject']); ?></strong>
+                                    <div class="inquiry-meta">
+                                        From <strong><?php echo htmlspecialchars($inq['user_name']); ?></strong>
+                                        (<?php echo htmlspecialchars($inq['user_role']); ?>) — <?php echo htmlspecialchars($inq['user_email']); ?>
+                                    </div>
+                                </div>
+                                <span class="badge <?php echo $inq['status'] === 'Open' ? 'badge-pending' : 'badge-available'; ?>">
+                                    <?php echo $inq['status'] === 'Open' ? 'Awaiting Reply' : 'Resolved'; ?>
+                                </span>
+                            </div>
+                            <p class="inquiry-message"><?php echo nl2br(htmlspecialchars($inq['message'])); ?></p>
+                            <span class="inquiry-date">Sent: <?php echo date('Y-m-d h:i A', strtotime($inq['created_at'])); ?></span>
+
+                            <?php if ($inq['status'] === 'Open'): ?>
+                                <form action="admin.php" method="POST" class="inquiry-reply-form">
+                                    <input type="hidden" name="reply_inquiry" value="1">
+                                    <input type="hidden" name="inquiry_id" value="<?php echo $inq['inquiry_id']; ?>">
+                                    <div class="form-group" style="margin-bottom:10px;">
+                                        <textarea name="admin_reply" class="form-control" rows="3" placeholder="Type your reply..." required></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-success" style="width:auto; padding:9px 20px;">Send Reply &amp; Resolve</button>
+                                </form>
+                            <?php else: ?>
+                                <div class="inquiry-reply">
+                                    <span class="inquiry-reply-label">Your Reply</span>
+                                    <p class="inquiry-reply-text"><?php echo nl2br(htmlspecialchars($inq['admin_reply'])); ?></p>
+                                    <span class="inquiry-date">Replied: <?php echo date('Y-m-d h:i A', strtotime($inq['replied_at'])); ?></span>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Tab 6: System Broadcast -->
         <div id="broadcast" class="tab-content">
             <div class="auth-container" style="margin: 0 auto; max-width: 700px; width: 100%;">
                 <h3 style="color: var(--primary); margin-top: 0; margin-bottom: 20px; font-size: 22px;">Broadcast System Notification</h3>
