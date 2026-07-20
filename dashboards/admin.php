@@ -179,7 +179,7 @@ $all_ratings = mysqli_fetch_all($ratings_res, MYSQLI_ASSOC);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel - Fresh Ceylon</title>
-    <link rel="stylesheet" href="../style.css?v=2">
+    <link rel="stylesheet" href="../style.css?v=3">
     <style>
         .admin-action-btn {
             background: none;

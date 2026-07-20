@@ -879,19 +879,27 @@ html, body {
         flex: 0 0 auto;
     }
 
-    /* Tables: compact + sticky first column so long rows are
-       still scannable without losing context while scrolling */
-    table { font-size: 12.5px; }
-    th, td { padding: 9px 10px; }
-    .table-container table th:first-child,
-    .table-container table td:first-child {
-        position: sticky;
-        left: 0;
-        background: var(--bg-surface);
-        z-index: 1;
-        box-shadow: 2px 0 4px rgba(0,0,0,0.15);
+    /* Tables: keep full desktop size/readability, just make the
+       container scroll horizontally instead of squeezing text.
+       min-width guarantees columns never get crushed narrower
+       than a normal desktop layout, so nothing is cut off or
+       tiny — you scroll sideways to see the rest instead. */
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border: 1px solid var(--border-color);
+        background:
+            linear-gradient(to right, var(--bg-surface) 30%, rgba(0,0,0,0)),
+            linear-gradient(to left, var(--bg-surface) 30%, rgba(0,0,0,0)) 100% 0,
+            radial-gradient(farthest-side at 0 50%, rgba(0,0,0,0.35), rgba(0,0,0,0)),
+            radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,0.35), rgba(0,0,0,0)) 100% 0;
+        background-repeat: no-repeat;
+        background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
+        background-attachment: local, local, scroll, scroll;
     }
-    .table-container table th:first-child { background: var(--bg-elevated); }
+    .table-container table {
+        min-width: 640px;
+    }
 
     .admin-stats-grid { gap: 12px; }
     .stat-card { padding: 16px 12px; }
@@ -911,8 +919,6 @@ html, body {
 
 @media (max-width: 480px) {
     .dash-container-padded { padding: 18px 12px; }
-    table { font-size: 12px; }
-    th, td { padding: 8px 8px; }
 }
 
 /* Custom scrollbar global */

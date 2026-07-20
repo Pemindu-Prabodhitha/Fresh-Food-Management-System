@@ -236,7 +236,7 @@ foreach ($my_orders as $ord) {
     (function(){try{var t=localStorage.getItem('fc-theme');document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');}catch(e){}})();
     </script>
     <title>Sales Dashboard - Fresh Ceylon</title>
-    <link rel="stylesheet" href="../style.css?v=2">
+    <link rel="stylesheet" href="../style.css?v=3">
 </head>
 <body class="has-sidenav">
 
