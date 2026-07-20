@@ -236,7 +236,7 @@ foreach ($my_orders as $ord) {
     (function(){try{var t=localStorage.getItem('fc-theme');document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');}catch(e){}})();
     </script>
     <title>Sales Dashboard - Fresh Ceylon</title>
-    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="../style.css?v=2">
 </head>
 <body class="has-sidenav">
 
@@ -274,7 +274,7 @@ foreach ($my_orders as $ord) {
         <span class="welcome-msg">Welcome back, <strong><?php echo htmlspecialchars($sales_name); ?></strong> (Sales Buyer)</span>
     </div>
 
-    <div style="max-width: 1400px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 30px;">
+    <div class="dash-container">
 
         <!-- Dashboard Sub-Navigation -->
         <div class="dashboard-tabs">

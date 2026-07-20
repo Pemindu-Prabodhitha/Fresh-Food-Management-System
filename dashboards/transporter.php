@@ -220,7 +220,7 @@ if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
     (function(){try{var t=localStorage.getItem('fc-theme');document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');}catch(e){}})();
     </script>
     <title>Transporter Dashboard - Fresh Ceylon</title>
-    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="../style.css?v=2">
 </head>
 <body class="has-sidenav">
 
@@ -263,7 +263,7 @@ if ($stmt_rating = mysqli_prepare($con, $rating_query)) {
         </span>
     </div>
 
-    <div style="max-width: 1400px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 30px;">
+    <div class="dash-container">
 
         <!-- Dashboard Sub-Navigation -->
         <div class="dashboard-tabs">
