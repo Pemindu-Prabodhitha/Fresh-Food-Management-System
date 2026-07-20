@@ -1,7 +1,7 @@
 <?php
-$servername = "localhost";
-$username = "root";
-$password = "";
+$servername = "sql206.infinityfree.com";
+$username = "if0_42447735";
+$password = "yz8AlA3SWOgeqqT";
 
 $con = mysqli_connect($servername,$username,$password);
 
@@ -12,7 +12,7 @@ else{
     echo "Connected mysql server successfully.<br>";
 }
 
-$dbname = "fresh_food_mgmt2";
+$dbname = "if0_42447735_fresh_ceylon";
 $sql_createdb = "CREATE DATABASE IF NOT EXISTS $dbname";
 
 if(mysqli_query($con,$sql_createdb)){
@@ -167,5 +167,23 @@ if(mysqli_query($con,$sql_createtable_ratings)){
 }
 else{
     die("Error creating table ratings: ".mysqli_error($con));
+}
+
+$sql_createtable_inquiries = "CREATE TABLE IF NOT EXISTS inquiries (
+    inquiry_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    subject VARCHAR(150) NOT NULL,
+    message TEXT NOT NULL,
+    status ENUM('Open', 'Resolved') NOT NULL DEFAULT 'Open',
+    admin_reply TEXT NULL DEFAULT NULL,
+    replied_at TIMESTAMP NULL DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+)";
+if(mysqli_query($con,$sql_createtable_inquiries)){
+    echo "Table inquiries created successfully.<br>";
+}
+else{
+    die("Error creating table inquiries: ".mysqli_error($con));
 }
 ?>
